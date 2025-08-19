@@ -1,8 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- 1. CONFIGURACIÓN DE SUPABASE ---
-    // ¡IMPORTANTE! Reemplaza con tus propias credenciales de Supabase.
-    const SUPABASE_URL = 'https://tu-proyecto-id.supabase.co';
-    const SUPABASE_ANON_KEY = 'tu-clave-anon-publica';
+    const SUPABASE_URL = 'https://ljxaakuiepxxdqsqcpsc.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqeGFha3VpZXB4eGRxc3FjcHNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MzQ3NzUsImV4cCI6MjA3MTIxMDc3NX0.q7jfHERVexiluOWwwetf-NSYZeRPg-JJfcs77Zug5ys';
 
     // Inicializa el cliente de Supabase.
     const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
