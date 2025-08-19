@@ -46,87 +46,73 @@ export default function TermsManager({ session }) {
 
       if (error) throw error
       
-      setTerms([...terms, data])
+      setTerms([...terms, data].sort((a, b) => a.nombre_preferente.localeCompare(b.nombre_preferente)))
       setNewTermName('')
       setNewTermScopeNote('')
-      alert('Término creado con éxito')
     } catch (error) {
       alert(error.message)
     }
   }
 
-  /**
-   * EJEMPLO DE IMPLEMENTACIÓN DE RELACIÓN TG/TE
-   * Esta función crea una relación recíproca entre dos términos.
-   * @param {string} idTerminoOrigen - El UUID del término específico (TE).
-   * @param {string} idTerminoDestino - El UUID del término genérico (TG).
-   */
-  const createReciprocalRelationship = async (idTerminoEspecifico, idTerminoGenerico) => {
-    try {
-        // 1. El término específico (TE) tiene un término genérico (TG)
-        const { error: error1 } = await supabase.from('relaciones').insert({
-            id_termino_origen: idTerminoEspecifico,
-            tipo_relacion: 'TG',
-            id_termino_destino: idTerminoGenerico
-        });
-        if (error1) throw new Error(`Error creando relación TG: ${error1.message}`);
-
-        // 2. El término genérico (TG) tiene un término específico (TE)
-        const { error: error2 } = await supabase.from('relaciones').insert({
-            id_termino_origen: idTerminoGenerico,
-            tipo_relacion: 'TE',
-            id_termino_destino: idTerminoEspecifico
-        });
-        if (error2) throw new Error(`Error creando relación TE: ${error2.message}`);
-
-        alert('Relación TG/TE creada con éxito');
-
-    } catch (error) {
-        // En una aplicación real, aquí deberías manejar la posible inconsistencia 
-        // si una de las dos inserciones falla.
-        alert(error.message);
-    }
-  }
-
   if (loading) {
-    return <p>Cargando términos...</p>
+    return <div className="flex justify-center items-center h-96"><span className="loading loading-lg"></span></div>
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '50px auto' }}>
-      <h2>Gestor de Términos del Tesauro</h2>
-      
-      <form onSubmit={handleCreateTerm}>
-        <h3>Crear Nuevo Término</h3>
-        <input 
-          type="text" 
-          placeholder="Nombre del término preferente" 
-          value={newTermName}
-          onChange={(e) => setNewTermName(e.target.value)}
-          style={{ padding: '8px', marginRight: '10px' }}
-        />
-        <input 
-          type="text" 
-          placeholder="Nota de alcance (definición)" 
-          value={newTermScopeNote}
-          onChange={(e) => setNewTermScopeNote(e.target.value)}
-          style={{ padding: '8px', marginRight: '10px' }}
-        />
-        <button type="submit">Crear Término</button>
-      </form>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="md:col-span-1">
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title">Crear Nuevo Término</h2>
+            <form onSubmit={handleCreateTerm}>
+              <div className="form-control w-full">
+                <label className="label">
+                  <span className="label-text">Nombre del término</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Ej: Fotosíntesis" 
+                  className="input input-bordered w-full" 
+                  value={newTermName}
+                  onChange={(e) => setNewTermName(e.target.value)}
+                />
+              </div>
+              <div className="form-control w-full mt-4">
+                <label className="label">
+                  <span className="label-text">Nota de alcance</span>
+                </label>
+                <textarea 
+                  className="textarea textarea-bordered h-24" 
+                  placeholder="Definición del término..."
+                  value={newTermScopeNote}
+                  onChange={(e) => setNewTermScopeNote(e.target.value)}
+                ></textarea>
+              </div>
+              <div className="card-actions justify-end mt-6">
+                <button type="submit" className="btn btn-primary">Crear</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
-      <hr style={{ margin: '20px 0' }} />
-
-      <h3>Términos Existentes</h3>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {terms.map(term => (
-          <li key={term.id} style={{ border: '1px solid #eee', padding: '10px', marginBottom: '10px' }}>
-            <strong>{term.nombre_preferente}</strong>
-            <p>{term.nota_alcance || 'Sin nota de alcance'}</p>
-            {/* Aquí irían los botones para editar, eliminar y crear relaciones */}
-          </li>
-        ))}
-      </ul>
+      <div className="md:col-span-2">
+        <h2 className="text-2xl font-bold mb-4">Términos Existentes ({terms.length})</h2>
+        <div className="space-y-4">
+          {terms.map(term => (
+            <div key={term.id} className="card bg-base-100 shadow-md collapse collapse-arrow">
+              <input type="checkbox" /> 
+              <div className="collapse-title text-xl font-medium">
+                {term.nombre_preferente}
+              </div>
+              <div className="collapse-content">
+                <p>{term.nota_alcance || 'Sin nota de alcance'}</p>
+                {/* Aquí se agregarán las relaciones y acciones */}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

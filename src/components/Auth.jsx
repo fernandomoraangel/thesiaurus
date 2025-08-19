@@ -12,7 +12,7 @@ export default function Auth() {
       setLoading(true)
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      alert('¡Has iniciado sesión!')
+      // La alerta se elimina para una mejor UX, el cambio de estado en App.jsx se encarga
     } catch (error) {
       alert(error.error_description || error.message)
     } finally {
@@ -35,37 +35,54 @@ export default function Auth() {
   }
 
   return (
-    <div style={{ maxWidth: '420px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Autenticación del Tesauro</h2>
-      <p>Inicia sesión o crea una cuenta para continuar</p>
-      <form onSubmit={handleLogin}>
-        <div>
-          <input
-            type="email"
-            placeholder="Tu correo electrónico"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-          />
+    <div className="hero min-h-[calc(100vh-100px)]">
+      <div className="hero-content flex-col lg:flex-row-reverse">
+        <div className="text-center lg:text-left lg:pl-8">
+          <h1 className="text-5xl font-bold">¡Bienvenido!</h1>
+          <p className="py-6">Gestiona tus tesauros de forma moderna y eficiente. Inicia sesión o crea una cuenta para comenzar.</p>
         </div>
-        <div>
-          <input
-            type="password"
-            placeholder="Tu contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-          />
+        <div className="card shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
+          <form className="card-body" onSubmit={handleLogin}>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Email</span>
+              </label>
+              <input 
+                type="email" 
+                placeholder="email" 
+                className="input input-bordered" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Contraseña</span>
+              </label>
+              <input 
+                type="password" 
+                placeholder="contraseña" 
+                className="input input-bordered" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="form-control mt-6">
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                {loading ? <span className="loading loading-spinner"></span> : 'Iniciar Sesión'}
+              </button>
+            </div>
+            <div className="divider">O</div>
+            <div className="form-control">
+                <button type="button" className="btn btn-outline" onClick={handleSignup} disabled={loading}>
+                    {loading ? <span className="loading loading-spinner"></span> : 'Registrarse'}
+                </button>
+            </div>
+          </form>
         </div>
-        <div>
-          <button type="submit" disabled={loading}>
-            {loading ? <span>Cargando...</span> : <span>Iniciar Sesión</span>}
-          </button>
-          <button type="button" onClick={handleSignup} disabled={loading} style={{ marginLeft: '10px' }}>
-            {loading ? <span>Cargando...</span> : <span>Registrarse</span>}
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   )
 }
