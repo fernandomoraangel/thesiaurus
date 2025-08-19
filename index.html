@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Tesauros</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Carga de librerías desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div id="app-container">
+        <!-- PANEL DE CONTROL (IZQUIERDA) -->
+        <div id="control-panel">
+            <header>
+                <h1>Editor de Tesauros</h1>
+                <p>Crea y visualiza tesauros de forma interactiva.</p>
+            </header>
+
+            <!-- SECCIÓN DE BÚSQUEDA -->
+            <section class="control-section">
+                <h2>Buscar Término</h2>
+                <input type="search" id="search-input" placeholder="Buscar y resaltar...">
+            </section>
+
+            <!-- SECCIÓN DE GESTIÓN DE TÉRMINOS -->
+            <section class="control-section">
+                <h2>Gestionar Término</h2>
+                <form id="term-form">
+                    <input type="hidden" id="term-id">
+                    <label for="term-name">Término:</label>
+                    <input type="text" id="term-name" required placeholder="Ej: Biología Molecular">
+                    <label for="term-scope-note">Nota de Alcance:</label>
+                    <textarea id="term-scope-note" rows="4" placeholder="Definición o descripción..."></textarea>
+                    <div class="button-group">
+                        <button type="submit" id="add-term-btn">Añadir Nuevo</button>
+                        <button type="button" id="update-term-btn" disabled>Guardar Cambios</button>
+                        <button type="button" id="delete-term-btn" class="danger" disabled>Eliminar Término</button>
+                        <button type="button" id="clear-form-btn">Limpiar</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- SECCIÓN DE GESTIÓN DE RELACIONES -->
+            <section class="control-section">
+                <h2>Crear Relación</h2>
+                <form id="relationship-form">
+                    <label for="source-term">Término Origen:</label>
+                    <select id="source-term" required></select>
+                    <label for="relationship-type">Tipo de Relación:</label>
+                    <select id="relationship-type" required>
+                        <option value="BT">BT (Término Genérico)</option>
+                        <option value="RT">RT (Término Relacionado)</option>
+                        <option value="UF">UF (Usado Para / Sinónimo)</option>
+                    </select>
+                    <label for="target-term">Término Destino:</label>
+                    <select id="target-term" required></select>
+                    <button type="submit">Crear Relación</button>
+                </form>
+            </section>
+
+            <!-- SECCIÓN DE IMPORTACIÓN/EXPORTACIÓN -->
+            <section class="control-section">
+                <h2>Datos</h2>
+                 <div class="button-group">
+                    <button id="export-json-btn">Exportar a JSON</button>
+                    <label class="file-input-label" for="import-json-input">Importar desde JSON</label>
+                    <input type="file" id="import-json-input" accept=".json" style="display: none;">
+                </div>
+            </section>
+        </div>
+
+        <!-- PANEL DE VISUALIZACIÓN (DERECHA) -->
+        <div id="visualization-panel">
+            <div id="loader" class="hidden">Cargando...</div>
+            <div id="tooltip" class="hidden"></div>
+        </div>
+    </div>
+
+    <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->
+    <script src="script.js"></script>
+</body>
+</html>

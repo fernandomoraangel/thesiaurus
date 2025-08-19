@@ -1,0 +1,197 @@
+/* --- GENERALES Y LAYOUT --- */
+:root {
+    --primary-color: #2c5282;
+    --secondary-color: #a0aec0;
+    --background-color: #f7fafc;
+    --panel-background: #ffffff;
+    --border-color: #e2e8f0;
+    --text-color: #2d3748;
+    --danger-color: #c53030;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    font-family: var(--font-family);
+    margin: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    overflow: hidden;
+}
+
+#app-container {
+    display: flex;
+    height: 100vh;
+}
+
+#control-panel {
+    width: 380px;
+    padding: 1.5rem;
+    background-color: var(--panel-background);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+#visualization-panel {
+    flex-grow: 1;
+    position: relative;
+}
+
+header h1 {
+    font-size: 1.75rem;
+    color: var(--primary-color);
+    margin: 0;
+}
+
+header p {
+    margin: 0.25rem 0 0;
+    color: var(--secondary-color);
+}
+
+.control-section h2 {
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+}
+
+/* --- FORMULARIOS Y BOTONES --- */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="search"],
+textarea,
+select {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(44, 82, 130, 0.2);
+}
+
+button, .file-input-label {
+    padding: 0.7rem 1rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-align: center;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+button:hover {
+    background-color: #1a365d;
+}
+
+button:disabled {
+    background-color: var(--secondary-color);
+    cursor: not-allowed;
+}
+
+.button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+button.danger {
+    background-color: var(--danger-color);
+}
+button.danger:hover {
+    background-color: #9b2c2c;
+}
+
+.file-input-label {
+    background-color: #4a5568;
+    color: white;
+}
+.file-input-label:hover {
+    background-color: #2d3748;
+}
+
+
+/* --- VISUALIZACIÓN D3 --- */
+#visualization-panel svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.node circle {
+    stroke: white;
+    stroke-width: 2px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.node:hover circle {
+    transform: scale(1.2);
+}
+
+.node text {
+    font-size: 12px;
+    pointer-events: none;
+    text-anchor: middle;
+    dy: 24px;
+}
+
+.link {
+    stroke-opacity: 0.6;
+}
+.link.BT, .link.NT { stroke: #2c5282; }
+.link.RT { stroke: #2f855a; stroke-dasharray: 5,5; }
+.link.UF, .link.USE { stroke: #b7791f; stroke-dasharray: 2,2; }
+
+.node.highlighted circle {
+    stroke: #dd6b20;
+    stroke-width: 4px;
+}
+
+/* --- TOOLTIP Y LOADER --- */
+#tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    pointer-events: none;
+    max-width: 300px;
+}
+
+#loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.hidden {
+    display: none !important;
+}
