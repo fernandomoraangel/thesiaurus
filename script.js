@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateAll();
         } catch (error) {
             console.error('Error fetching initial data:', error);
-            alert('No se pudieron cargar los datos. Revisa la consola.');
+            Swal.fire('Error', 'No se pudieron cargar los datos. Revisa la consola.', 'error');
         } finally {
             loader.classList.add('hidden');
         }
@@ -85,9 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             state.terms.push(data);
             updateAll();
+            Swal.fire('Éxito', 'Término añadido correctamente.', 'success');
         } catch (error) {
             console.error('Error adding term:', error);
-            alert('Error al añadir el término.');
+            Swal.fire('Error', 'Error al añadir el término.', 'error');
         }
     }
     
@@ -106,9 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (index !== -1) state.terms[index] = data;
             
             updateAll();
+            Swal.fire('Éxito', 'Término actualizado correctamente.', 'success');
         } catch (error) {
             console.error('Error updating term:', error);
-            alert('Error al actualizar el término.');
+            Swal.fire('Error', 'Error al actualizar el término.', 'error');
         }
     }
 
@@ -117,7 +119,17 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} id - El UUID del término a eliminar.
      */
     async function deleteTerm(id) {
-        if (!confirm('¿Estás seguro de que quieres eliminar este término y todas sus relaciones?')) return;
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: "¡No podrás revertir esto!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, ¡elimínalo!'
+        });
+
+        if (!result.isConfirmed) return;
         
         try {
             // Primero, elimina todas las relaciones que involucran a este término.
@@ -134,9 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             updateAll();
             clearForm();
+            Swal.fire('¡Eliminado!', 'El término ha sido eliminado.', 'success');
         } catch (error) {
             console.error('Error deleting term:', error);
-            alert('Error al eliminar el término.');
+            Swal.fire('Error', 'Error al eliminar el término.', 'error');
         }
     }
 
@@ -168,9 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             state.relationships.push(...data);
             updateAll();
+            Swal.fire('Éxito', 'Relación creada correctamente.', 'success');
         } catch (error) {
             console.error('Error adding relationship:', error);
-            alert('Error al crear la relación. ¿Quizás ya existe?');
+            Swal.fire('Error', 'Error al crear la relación. ¿Quizás ya existe?', 'error');
         }
     }
 
@@ -344,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const target_id = targetTermSelect.value;
         const type = relationshipTypeSelect.value;
         if (source_id === target_id) {
-            alert('Un término no puede relacionarse consigo mismo.');
+            Swal.fire('Error', 'Un término no puede relacionarse consigo mismo.', 'error');
             return;
         }
         addRelationship(source_id, target_id, type);
@@ -382,7 +396,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = JSON.parse(event.target.result);
                 if (!data.terms || !data.relationships) throw new Error('Formato de archivo inválido.');
                 
-                if (!confirm(`Vas a importar ${data.terms.length} términos y ${data.relationships.length} relaciones. ¿Continuar?`)) return;
+                const result = await Swal.fire({
+                    title: '¿Estás seguro?',
+                    text: `Vas a importar ${data.terms.length} términos y ${data.relationships.length} relaciones. ¿Continuar?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Sí, ¡importar!'
+                });
+
+                if (!result.isConfirmed) return;
 
                 // Inserción masiva
                 const { error: termsError } = await supabase.from('terms').insert(data.terms);
@@ -391,11 +415,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { error: relsError } = await supabase.from('relationships').insert(data.relationships);
                 if (relsError) throw relsError;
 
-                alert('¡Importación completada con éxito!');
+                Swal.fire('¡Éxito!', 'Importación completada con éxito.', 'success');
                 fetchInitialData(); // Recargar todo
             } catch (error) {
                 console.error('Error importing data:', error);
-                alert('Error al importar el archivo. Revisa la consola.');
+                Swal.fire('Error', 'Error al importar el archivo. Revisa la consola.', 'error');
             }
         };
         reader.readAsText(file);
