@@ -156,7 +156,11 @@ button.danger:hover {
     font-size: 12px;
     pointer-events: none;
     text-anchor: middle;
-    dy: 24px;
+    paint-order: stroke;
+    stroke: #fff;
+    stroke-width: 3px;
+    stroke-linecap: butt;
+    stroke-linejoin: miter;
 }
 
 .link {
@@ -194,4 +198,35 @@ button.danger:hover {
 
 .hidden {
     display: none !important;
+}
+
+/* --- AUTHENTICATION --- */
+#auth-container {
+    max-width: 400px;
+    margin: 5rem auto;
+    padding: 2rem;
+    background-color: var(--panel-background);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    text-align: center;
+}
+
+#auth-container header {
+    margin-bottom: 1.5rem;
+}
+
+/* --- THESAURUS MANAGER --- */
+#thesaurus-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#new-thesaurus-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#new-thesaurus-form input {
+    flex-grow: 1;
 }
