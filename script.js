@@ -37,7 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 3. ESTADO DE LA APLICACIÓN Y CONFIGURACIÓN DE D3 ---
     let state = {
-        concepts: [], // Almacenará los conceptos con sus etiquetas, notas y relaciones
+        concepts: [],
+        relationships: [], // Fuente de verdad única para las relaciones
         thesauruses: [],
         activeThesaurusId: null,
         user: null
@@ -91,8 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
             state.activeThesaurusId = data[0].id;
             await fetchAllConceptData();
         } else {
-            // Si no hay tesauros, limpiar la vista
             state.concepts = [];
+            state.relationships = [];
             updateAll();
         }
     }
@@ -203,12 +204,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchAllConceptData() {
         if (!state.activeThesaurusId) {
             state.concepts = [];
+            state.relationships = [];
             updateAll();
             return;
         }
         loader.classList.remove('hidden');
         try {
-            // 1. Fetch all concepts for the thesaurus
             const { data: concepts, error: conceptsError } = await supabase
                 .from('concepts')
                 .select('id, created_at')
@@ -217,25 +218,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (concepts.length === 0) {
                 state.concepts = [];
+                state.relationships = [];
                 updateAll();
                 return;
             }
 
             const conceptIds = concepts.map(c => c.id);
 
-            // 2. Fetch all labels, notes, and relationships for those concepts
             const [labelsRes, notesRes, relationshipsRes] = await Promise.all([
                 supabase.from('labels').select('*').in('concept_id', conceptIds),
                 supabase.from('notes').select('*').in('concept_id', conceptIds),
-                supabase.from('relationships').select('*').in('source_concept_id', conceptIds)
+                supabase.from('relationships').select('*').or(`source_concept_id.in.(${conceptIds.join(',')}),target_concept_id.in.(${conceptIds.join(',')})`)
             ]);
 
             if (labelsRes.error) throw labelsRes.error;
             if (notesRes.error) throw notesRes.error;
             if (relationshipsRes.error) throw relationshipsRes.error;
 
-            // 3. Assemble the complete concept objects
-            const conceptMap = new Map(concepts.map(c => [c.id, { ...c, labels: [], notes: [], relationships: [] }]));
+            state.relationships = relationshipsRes.data;
+            const conceptMap = new Map(concepts.map(c => [c.id, { ...c, labels: [], notes: [] }]));
 
             labelsRes.data.forEach(label => {
                 if (conceptMap.has(label.concept_id)) {
@@ -246,12 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
             notesRes.data.forEach(note => {
                 if (conceptMap.has(note.concept_id)) {
                     conceptMap.get(note.concept_id).notes.push(note);
-                }
-            });
-            
-            relationshipsRes.data.forEach(rel => {
-                 if (conceptMap.has(rel.source_concept_id)) {
-                    conceptMap.get(rel.source_concept_id).relationships.push(rel);
                 }
             });
 
@@ -274,7 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Recopilar datos del formulario
         const prefLabel = { type: 'prefLabel', text: prefLabelInput.value.trim() };
         if (!prefLabel.text) {
             Swal.fire('Error', 'La Etiqueta Preferida es obligatoria.', 'error');
@@ -296,10 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             let currentConceptId = conceptId;
 
-            // --- Transacción para guardar el concepto ---
-            // 1. Crear o identificar el concepto
             if (!currentConceptId) {
-                // Crear nuevo concepto
                 const { data, error } = await supabase
                     .from('concepts')
                     .insert({ thesaurus_id: thesaurusId })
@@ -309,7 +300,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentConceptId = data.id;
             }
 
-            // 2. Borrar y re-insertar etiquetas y notas (más simple que hacer un diff)
             await Promise.all([
                 supabase.from('labels').delete().eq('concept_id', currentConceptId),
                 supabase.from('notes').delete().eq('concept_id', currentConceptId)
@@ -318,37 +308,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const labelsToInsert = allLabels.map(l => ({ concept_id: currentConceptId, label_type: l.type, label_text: l.text }));
             const notesToInsert = allNotes.map(n => ({ concept_id: currentConceptId, note_type: n.type, note_text: n.text }));
 
-            const { error: labelsError } = await supabase.from('labels').insert(labelsToInsert);
-            if (labelsError) throw labelsError;
-            
+            await supabase.from('labels').insert(labelsToInsert);
             if (notesToInsert.length > 0) {
-                const { error: notesError } = await supabase.from('notes').insert(notesToInsert);
-                if (notesError) throw notesError;
+                await supabase.from('notes').insert(notesToInsert);
             }
 
-            // 3. Gestionar relaciones
-            // Borrar relaciones existentes para este concepto
             await supabase.from('relationships').delete().or(`source_concept_id.eq.${currentConceptId},target_concept_id.eq.${currentConceptId}`);
             
             const relationshipsToInsert = [];
-            // Relación broader/narrower
             if (broaderConceptId) {
                 relationshipsToInsert.push({ source_concept_id: currentConceptId, target_concept_id: broaderConceptId, relationship_type: 'broader' });
                 relationshipsToInsert.push({ source_concept_id: broaderConceptId, target_concept_id: currentConceptId, relationship_type: 'narrower' });
             }
-            // Relaciones related
             relatedConceptIds.forEach(relatedId => {
                 relationshipsToInsert.push({ source_concept_id: currentConceptId, target_concept_id: relatedId, relationship_type: 'related' });
                 relationshipsToInsert.push({ source_concept_id: relatedId, target_concept_id: currentConceptId, relationship_type: 'related' });
             });
 
             if (relationshipsToInsert.length > 0) {
-                 const { error: relsError } = await supabase.from('relationships').insert(relationshipsToInsert);
-                 if (relsError) throw relsError;
+                 await supabase.from('relationships').insert(relationshipsToInsert);
             }
 
             Swal.fire('Éxito', 'Concepto guardado correctamente.', 'success');
-            await fetchAllConceptData(); // Recargar todos los datos
+            await fetchAllConceptData();
             clearForm();
 
         } catch (error) {
@@ -372,7 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (result.isConfirmed) {
             try {
-                // ON DELETE CASCADE se encarga del resto (labels, notes, relationships)
                 const { error } = await supabase.from('concepts').delete().eq('id', conceptId);
                 if (error) throw error;
 
@@ -388,6 +369,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 7. FUNCIONES DE D3 (VISUALIZACIÓN) ---
+    let node;
+    let link;
+
+    simulation.on("tick", () => {
+        if (link) {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+        }
+        if (node) {
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        }
+    });
+
     function updateGraph() {
         const nodes = state.concepts.map(c => ({
             id: c.id,
@@ -395,65 +393,57 @@ document.addEventListener('DOMContentLoaded', () => {
             fullConcept: c
         }));
         
-        const relationships = [];
-        state.concepts.forEach(c => {
-            c.relationships.forEach(r => {
-                // Solo añadir una dirección de la relación para no duplicar líneas
-                if (r.relationship_type === 'broader' || r.relationship_type === 'related' && r.source_concept_id < r.target_concept_id) {
-                     relationships.push({
-                        ...r,
-                        source: r.source_concept_id,
-                        target: r.target_concept_id
-                    });
-                }
-            });
-        });
+        const nodeIds = new Set(nodes.map(n => n.id));
+        const links = state.relationships
+            .filter(r => nodeIds.has(r.source_concept_id) && nodeIds.has(r.target_concept_id))
+            .map(r => ({ ...r, source: r.source_concept_id, target: r.target_concept_id }));
 
-        const node = nodeGroup.selectAll(".node")
-            .data(nodes, d => d.id)
-            .join(
-                enter => {
-                    const nodeEnter = enter.append("g").attr("class", "node");
-                    nodeEnter.append("circle")
-                        .attr("r", 10)
-                        .attr("fill", "#2c5282")
-                        .on("click", (event, d) => showConceptDetails(d.fullConcept))
-                        .on("mouseover", showTooltip)
-                        .on("mousemove", moveTooltip)
-                        .on("mouseout", hideTooltip);
-
-                    nodeEnter.append("text")
-                        .attr("dy", -15)
-                        .text(d => d.name);
-                    nodeEnter.call(d3.drag()
-                        .on("start", dragstarted)
-                        .on("drag", dragged)
-                        .on("end", dragended));
-                    return nodeEnter;
-                },
-                update => update.select('text').text(d => d.name), // Actualizar nombre si cambia
-                exit => exit.remove()
-            );
-
-        const link = linkGroup.selectAll("line")
-            .data(relationships, d => d.id)
-            .join("line")
-            .attr("class", d => `link ${d.relationship_type}`)
-            .attr("stroke-width", 2);
-
+        // === UPDATE THE SIMULATION ===
         simulation.nodes(nodes);
-        simulation.force("link").links(relationships);
-        simulation.alpha(1).restart();
+        simulation.force("link").links(links);
 
-        simulation.on("tick", () => {
-            link
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
-            node
-                .attr("transform", d => `translate(${d.x},${d.y})`);
-        });
+        // === UPDATE THE VISUAL ELEMENTS ===
+        // LINKS
+        link = linkGroup
+            .selectAll("line")
+            .data(links, d => d.id);
+        
+        link.exit().remove();
+        
+        link = link.enter().append("line")
+            .attr("class", d => `link ${d.relationship_type}`)
+            .attr("stroke-width", 2)
+            .merge(link);
+
+        // NODES
+        node = nodeGroup
+            .selectAll(".node")
+            .data(nodes, d => d.id);
+        
+        node.exit().remove();
+
+        const nodeEnter = node.enter().append("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        nodeEnter.append("circle")
+            .attr("r", 10)
+            .attr("fill", "#2c5282")
+            .on("click", (event, d) => showConceptDetails(d.fullConcept))
+            .on("mouseover", showTooltip)
+            .on("mousemove", moveTooltip)
+            .on("mouseout", hideTooltip);
+
+        nodeEnter.append("text")
+            .attr("dy", -12);
+
+        node = nodeEnter.merge(node);
+        node.select("text").text(d => d.name);
+
+        simulation.alpha(1).restart();
     }
 
     function dragstarted(event, d) {
@@ -461,10 +451,12 @@ document.addEventListener('DOMContentLoaded', () => {
         d.fx = d.x;
         d.fy = d.y;
     }
+
     function dragged(event, d) {
         d.fx = event.x;
         d.fy = event.y;
     }
+
     function dragended(event, d) {
         if (!event.active) simulation.alphaTarget(0);
         d.fx = null;
@@ -502,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const options = sortedConcepts
-            .filter(c => c.id !== currentConceptId) // No puede ser su propio padre
+            .filter(c => c.id !== currentConceptId)
             .map(c => {
                 const prefLabel = c.labels.find(l => l.label_type === 'prefLabel')?.label_text;
                 return `<option value="${c.id}">${prefLabel || c.id}</option>`;
@@ -526,11 +518,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         populateConceptDropdowns(concept.id);
 
-        // Seleccionar relaciones
-        const broaderRel = concept.relationships.find(r => r.relationship_type === 'broader');
+        const broaderRel = state.relationships.find(r => r.source_concept_id === concept.id && r.relationship_type === 'broader');
         broaderConceptSelect.value = broaderRel ? broaderRel.target_concept_id : '';
 
-        const relatedIds = concept.relationships.filter(r => r.relationship_type === 'related').map(r => r.target_concept_id);
+        const relatedIds = state.relationships
+            .filter(r => r.source_concept_id === concept.id && r.relationship_type === 'related')
+            .map(r => r.target_concept_id);
         Array.from(relatedConceptsSelect.options).forEach(opt => {
             opt.selected = relatedIds.includes(opt.value);
         });
@@ -541,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearForm() {
         conceptForm.reset();
         conceptIdInput.value = '';
-        relatedConceptsSelect.selectedIndex = -1; // Deseleccionar 'multiple' select
+        relatedConceptsSelect.selectedIndex = -1;
         deleteConceptBtn.disabled = true;
         populateConceptDropdowns();
     }
@@ -577,22 +570,18 @@ document.addEventListener('DOMContentLoaded', () => {
             Swal.fire('Info', 'No hay conceptos para exportar.', 'info');
             return;
         }
-        // Estructura de exportación más limpia
+        
         const dataToExport = {
-            concepts: state.concepts.map(c => ({
-                id: c.id,
-                labels: c.labels.map(({ concept_id, ...rest }) => rest),
-                notes: c.notes.map(({ concept_id, ...rest }) => rest),
-                relationships: c.relationships.map(({ id, created_at, ...rest }) => rest)
-            }))
+            concepts: state.concepts,
+            relationships: state.relationships
         };
 
         const dataStr = JSON.stringify(dataToExport, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
         a.download = `thesaurus_skos_export_${state.activeThesaurusId}.json`;
+        a.href = url;
         a.click();
         URL.revokeObjectURL(url);
     });
@@ -604,11 +593,11 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = async (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                if (!data.concepts || !Array.isArray(data.concepts)) throw new Error('Formato de archivo inválido. Se esperaba un objeto con una propiedad "concepts".');
+                if (!data.concepts || !data.relationships) throw new Error('Formato de archivo inválido.');
 
                 const result = await Swal.fire({
                     title: '¿Estás seguro?',
-                    text: `Vas a importar ${data.concepts.length} conceptos al tesauro actual. Esto no eliminará los conceptos existentes. ¿Continuar?`,
+                    text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`,
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, ¡importar!'
@@ -618,29 +607,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 loader.classList.remove('hidden');
 
+                const conceptIdMap = new Map();
                 for (const concept of data.concepts) {
-                    // 1. Insertar el concepto
-                    const { data: newConcept, error: conceptError } = await supabase
+                    const oldId = concept.id;
+                    const { data: newConcept, error } = await supabase
                         .from('concepts')
                         .insert({ thesaurus_id: state.activeThesaurusId })
                         .select('id')
                         .single();
-                    if (conceptError) throw conceptError;
+                    if (error) throw error;
+                    conceptIdMap.set(oldId, newConcept.id);
 
-                    // 2. Insertar labels y notes
-                    if (concept.labels && concept.labels.length > 0) {
-                        const labelsToInsert = concept.labels.map(l => ({ ...l, concept_id: newConcept.id }));
+                    if (concept.labels) {
+                        const labelsToInsert = concept.labels.map(l => ({ ...l, concept_id: newConcept.id, id: undefined }));
                         await supabase.from('labels').insert(labelsToInsert);
                     }
-                    if (concept.notes && concept.notes.length > 0) {
-                        const notesToInsert = concept.notes.map(n => ({ ...n, concept_id: newConcept.id }));
+                    if (concept.notes) {
+                        const notesToInsert = concept.notes.map(n => ({ ...n, concept_id: newConcept.id, id: undefined }));
                         await supabase.from('notes').insert(notesToInsert);
                     }
-                    // NOTA: Las relaciones no se importan en este flujo simplificado para evitar conflictos de ID.
-                    // Una importación completa requeriría mapear los IDs antiguos a los nuevos.
                 }
 
-                Swal.fire('¡Éxito!', 'Importación completada. Las relaciones no se importan en este proceso.', 'success');
+                if (data.relationships) {
+                    const relsToInsert = data.relationships.map(r => ({
+                        ...r,
+                        id: undefined,
+                        source_concept_id: conceptIdMap.get(r.source_concept_id),
+                        target_concept_id: conceptIdMap.get(r.target_concept_id)
+                    })).filter(r => r.source_concept_id && r.target_concept_id);
+                    await supabase.from('relationships').insert(relsToInsert);
+                }
+
+                Swal.fire('¡Éxito!', 'Importación completada.', 'success');
                 await fetchAllConceptData();
             } catch (error) {
                 console.error('Error importing data:', error);

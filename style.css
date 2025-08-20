@@ -166,9 +166,8 @@ button.danger:hover {
 .link {
     stroke-opacity: 0.6;
 }
-.link.BT, .link.NT { stroke: #2c5282; }
-.link.RT { stroke: #2f855a; stroke-dasharray: 5,5; }
-.link.UF, .link.USE { stroke: #b7791f; stroke-dasharray: 2,2; }
+.link.broader, .link.narrower { stroke: #2c5282; }
+.link.related { stroke: #2f855a; stroke-dasharray: 5,5; }
 
 .node.highlighted circle {
     stroke: #dd6b20;
