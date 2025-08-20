@@ -35,6 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteConceptBtn = document.getElementById('delete-concept-btn');
     const clearFormBtn = document.getElementById('clear-form-btn');
 
+    // Elementos del Modal
+    const conceptModal = document.getElementById('concept-modal');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const modalBody = document.getElementById('modal-body');
+    const modalTitle = document.getElementById('modal-title');
+
     // --- 3. ESTADO DE LA APLICACIÓN Y CONFIGURACIÓN DE D3 ---
     let state = {
         concepts: [],
@@ -432,7 +438,13 @@ document.addEventListener('DOMContentLoaded', () => {
         nodeEnter.append("circle")
             .attr("r", 10)
             .attr("fill", "#2c5282")
-            .on("click", (event, d) => showConceptDetails(d.fullConcept))
+            .on("click", (event, d) => {
+                if (event.shiftKey) {
+                    showConceptModal(d.fullConcept);
+                } else {
+                    showConceptDetails(d.fullConcept);
+                }
+            })
             .on("mouseover", showTooltip)
             .on("mousemove", moveTooltip)
             .on("mouseout", hideTooltip);
@@ -531,6 +543,56 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteConceptBtn.disabled = false;
     }
 
+    function showConceptModal(concept) {
+        const getLabel = (type) => concept.labels.find(l => l.label_type === type)?.label_text || 'N/A';
+        const getNote = (type) => concept.notes.find(n => n.note_type === type)?.note_text || 'No disponible';
+        const getLabels = (type) => {
+            const labels = concept.labels.filter(l => l.label_type === type).map(l => `<li>${l.label_text}</li>`).join('');
+            return labels || '<li>Ninguna</li>';
+        };
+
+        const getConceptName = (conceptId) => {
+            const foundConcept = state.concepts.find(c => c.id === conceptId);
+            return foundConcept ? (foundConcept.labels.find(l => l.label_type === 'prefLabel')?.label_text || 'Concepto sin nombre') : 'Concepto no encontrado';
+        };
+
+        const broaderRel = state.relationships.find(r => r.source_concept_id === concept.id && r.relationship_type === 'broader');
+        const narrowerRels = state.relationships.filter(r => r.source_concept_id === concept.id && r.relationship_type === 'narrower').map(r => `<li>${getConceptName(r.target_concept_id)}</li>`).join('');
+        const relatedRels = state.relationships.filter(r => r.source_concept_id === concept.id && r.relationship_type === 'related').map(r => `<li>${getConceptName(r.target_concept_id)}</li>`).join('');
+
+        modalTitle.textContent = getLabel('prefLabel');
+        modalBody.innerHTML = `
+            <div class="modal-section">
+                <h4>Definición</h4>
+                <p>${getNote('definition')}</p>
+            </div>
+            <div class="modal-section">
+                <h4>Nota de Alcance</h4>
+                <p>${getNote('scopeNote')}</p>
+            </div>
+            <div class="modal-section">
+                <h4>Ejemplo de Uso</h4>
+                <p>${getNote('example')}</p>
+            </div>
+            <div class="modal-section">
+                <h4>Etiquetas Alternativas (Sinónimos)</h4>
+                <ul>${getLabels('altLabel')}</ul>
+            </div>
+            <div class="modal-section">
+                <h4>Relaciones Semánticas</h4>
+                <p><strong>Término Genérico (Más amplio):</strong> ${broaderRel ? getConceptName(broaderRel.target_concept_id) : 'Ninguno'}</p>
+                
+                <h4>Términos Específicos (Más estrechos):</h4>
+                <ul>${narrowerRels || '<li>Ninguno</li>'}</ul>
+
+                <h4>Términos Relacionados:</h4>
+                <ul>${relatedRels || '<li>Ninguno</li>'}</ul>
+            </div>
+        `;
+
+        conceptModal.classList.remove('hidden');
+    }
+
     function clearForm() {
         conceptForm.reset();
         conceptIdInput.value = '';
@@ -552,6 +614,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     deleteConceptBtn.addEventListener('click', deleteConcept);
     clearFormBtn.addEventListener('click', clearForm);
+
+    // Manejadores del modal
+    modalCloseBtn.addEventListener('click', () => conceptModal.classList.add('hidden'));
+    conceptModal.addEventListener('click', (e) => {
+        if (e.target === conceptModal) { // Cierra el modal si se hace clic en el overlay
+            conceptModal.classList.add('hidden');
+        }
+    });
 
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
