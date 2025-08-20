@@ -6,34 +6,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. SELECCIÓN DE ELEMENTOS DEL DOM ---
     const loader = document.getElementById('loader');
-    const termForm = document.getElementById('term-form');
-    const termIdInput = document.getElementById('term-id');
-    const termNameInput = document.getElementById('term-name');
-    const termScopeNoteInput = document.getElementById('term-scope-note');
-    const addTermBtn = document.getElementById('add-term-btn');
-    const updateTermBtn = document.getElementById('update-term-btn');
-    const deleteTermBtn = document.getElementById('delete-term-btn');
-    const clearFormBtn = document.getElementById('clear-form-btn');
-    const relationshipForm = document.getElementById('relationship-form');
-    const sourceTermSelect = document.getElementById('source-term');
-    const targetTermSelect = document.getElementById('target-term');
-    const relationshipTypeSelect = document.getElementById('relationship-type');
     const searchInput = document.getElementById('search-input');
     const exportBtn = document.getElementById('export-json-btn');
     const importInput = document.getElementById('import-json-input');
     const tooltip = document.getElementById('tooltip');
     const visPanel = document.getElementById('visualization-panel');
     const logoutBtn = document.getElementById('logout-btn');
+    
+    // Elementos del gestor de tesauros
     const thesaurusSelect = document.getElementById('thesaurus-select');
     const newThesaurusForm = document.getElementById('new-thesaurus-form');
     const newThesaurusNameInput = document.getElementById('new-thesaurus-name');
     const renameThesaurusBtn = document.getElementById('rename-thesaurus-btn');
     const deleteThesaurusBtn = document.getElementById('delete-thesaurus-btn');
 
+    // Elementos del formulario de conceptos (SKOS)
+    const conceptForm = document.getElementById('concept-form');
+    const conceptIdInput = document.getElementById('concept-id');
+    const prefLabelInput = document.getElementById('pref-label');
+    const altLabelsInput = document.getElementById('alt-labels');
+    const hiddenLabelsInput = document.getElementById('hidden-labels');
+    const definitionInput = document.getElementById('definition');
+    const scopeNoteInput = document.getElementById('scope-note');
+    const exampleInput = document.getElementById('example');
+    const broaderConceptSelect = document.getElementById('broader-concept');
+    const relatedConceptsSelect = document.getElementById('related-concepts');
+    const saveConceptBtn = document.getElementById('save-concept-btn');
+    const deleteConceptBtn = document.getElementById('delete-concept-btn');
+    const clearFormBtn = document.getElementById('clear-form-btn');
+
     // --- 3. ESTADO DE LA APLICACIÓN Y CONFIGURACIÓN DE D3 ---
     let state = {
-        terms: [],
-        relationships: [],
+        concepts: [], // Almacenará los conceptos con sus etiquetas, notas y relaciones
         thesauruses: [],
         activeThesaurusId: null,
         user: null
@@ -47,8 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .attr("height", height);
 
     const simulation = d3.forceSimulation()
-        .force("link", d3.forceLink().id(d => d.id).distance(100))
-        .force("charge", d3.forceManyBody().strength(-400))
+        .force("link", d3.forceLink().id(d => d.id).distance(120))
+        .force("charge", d3.forceManyBody().strength(-500))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
     let linkGroup = svg.append("g").attr("class", "links");
@@ -74,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchUserThesauruses() {
         const { data, error } = await supabase
             .from('thesauruses')
-            .select('*')
+            .select('id, name')
             .eq('user_id', state.user.id);
 
         if (error) {
@@ -85,7 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
         renderThesaurusSelector();
         if (data.length > 0) {
             state.activeThesaurusId = data[0].id;
-            fetchInitialData();
+            await fetchAllConceptData();
+        } else {
+            // Si no hay tesauros, limpiar la vista
+            state.concepts = [];
+            updateAll();
         }
     }
 
@@ -112,10 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
         renderThesaurusSelector();
         thesaurusSelect.value = data.id;
         state.activeThesaurusId = data.id;
-        fetchInitialData();
+        await fetchAllConceptData();
         newThesaurusNameInput.value = '';
     });
-
+    
     renameThesaurusBtn.addEventListener('click', async () => {
         const thesaurusId = state.activeThesaurusId;
         if (!thesaurusId) return;
@@ -155,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const result = await Swal.fire({
             title: '¿Estás seguro?',
-            text: "¡Se eliminará el tesauro y todos sus términos y relaciones!",
+            text: "¡Se eliminará el tesauro y todos sus conceptos y relaciones!",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -179,154 +187,227 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     state.activeThesaurusId = null;
                 }
-                fetchInitialData();
+                await fetchAllConceptData();
                 Swal.fire('Eliminado', 'El tesauro ha sido eliminado.', 'success');
             }
         }
     });
 
-    thesaurusSelect.addEventListener('change', () => {
+    thesaurusSelect.addEventListener('change', async () => {
         state.activeThesaurusId = thesaurusSelect.value;
-        fetchInitialData();
+        await fetchAllConceptData();
     });
 
-    // --- 6. FUNCIONES DE SUPABASE (CRUD) ---
-    async function fetchInitialData() {
+
+    // --- 6. FUNCIONES DE GESTIÓN DE CONCEPTOS (SKOS) ---
+    async function fetchAllConceptData() {
         if (!state.activeThesaurusId) {
-            state.terms = [];
-            state.relationships = [];
+            state.concepts = [];
             updateAll();
             return;
         }
         loader.classList.remove('hidden');
         try {
-            const { data: terms, error: termsError } = await supabase
-                .from('terms')
-                .select('*')
+            // 1. Fetch all concepts for the thesaurus
+            const { data: concepts, error: conceptsError } = await supabase
+                .from('concepts')
+                .select('id, created_at')
                 .eq('thesaurus_id', state.activeThesaurusId);
-            if (termsError) throw termsError;
+            if (conceptsError) throw conceptsError;
 
-            const termIds = terms.map(t => t.id);
-            const { data: relationships, error: relsError } = await supabase
-                .from('relationships')
-                .select('*')
-                .in('source_term_id', termIds);
-            if (relsError) throw relsError;
+            if (concepts.length === 0) {
+                state.concepts = [];
+                updateAll();
+                return;
+            }
 
-            state.terms = terms;
-            state.relationships = relationships;
+            const conceptIds = concepts.map(c => c.id);
 
+            // 2. Fetch all labels, notes, and relationships for those concepts
+            const [labelsRes, notesRes, relationshipsRes] = await Promise.all([
+                supabase.from('labels').select('*').in('concept_id', conceptIds),
+                supabase.from('notes').select('*').in('concept_id', conceptIds),
+                supabase.from('relationships').select('*').in('source_concept_id', conceptIds)
+            ]);
+
+            if (labelsRes.error) throw labelsRes.error;
+            if (notesRes.error) throw notesRes.error;
+            if (relationshipsRes.error) throw relationshipsRes.error;
+
+            // 3. Assemble the complete concept objects
+            const conceptMap = new Map(concepts.map(c => [c.id, { ...c, labels: [], notes: [], relationships: [] }]));
+
+            labelsRes.data.forEach(label => {
+                if (conceptMap.has(label.concept_id)) {
+                    conceptMap.get(label.concept_id).labels.push(label);
+                }
+            });
+
+            notesRes.data.forEach(note => {
+                if (conceptMap.has(note.concept_id)) {
+                    conceptMap.get(note.concept_id).notes.push(note);
+                }
+            });
+            
+            relationshipsRes.data.forEach(rel => {
+                 if (conceptMap.has(rel.source_concept_id)) {
+                    conceptMap.get(rel.source_concept_id).relationships.push(rel);
+                }
+            });
+
+            state.concepts = Array.from(conceptMap.values());
             updateAll();
+
         } catch (error) {
-            console.error('Error fetching initial data:', error);
-            Swal.fire('Error', 'No se pudieron cargar los datos. Revisa la consola.', 'error');
+            console.error('Error fetching concept data:', error);
+            Swal.fire('Error', 'No se pudieron cargar los datos del tesauro.', 'error');
         } finally {
             loader.classList.add('hidden');
         }
     }
 
-    async function addTerm(name, scope_note) {
-        try {
-            const { data, error } = await supabase
-                .from('terms')
-                .insert({ name, scope_note, thesaurus_id: state.activeThesaurusId })
-                .select()
-                .single();
-            if (error) throw error;
+    async function saveConcept() {
+        const conceptId = conceptIdInput.value || null;
+        const thesaurusId = state.activeThesaurusId;
+        if (!thesaurusId) {
+            Swal.fire('Error', 'No hay un tesauro activo seleccionado.', 'error');
+            return;
+        }
 
-            state.terms.push(data);
-            updateAll();
-            Swal.fire('Éxito', 'Término añadido correctamente.', 'success');
+        // Recopilar datos del formulario
+        const prefLabel = { type: 'prefLabel', text: prefLabelInput.value.trim() };
+        if (!prefLabel.text) {
+            Swal.fire('Error', 'La Etiqueta Preferida es obligatoria.', 'error');
+            return;
+        }
+
+        const altLabels = altLabelsInput.value.split('\n').map(t => t.trim()).filter(Boolean).map(text => ({ type: 'altLabel', text }));
+        const hiddenLabels = hiddenLabelsInput.value.split('\n').map(t => t.trim()).filter(Boolean).map(text => ({ type: 'hiddenLabel', text }));
+        const allLabels = [prefLabel, ...altLabels, ...hiddenLabels];
+
+        const definition = { type: 'definition', text: definitionInput.value.trim() };
+        const scopeNote = { type: 'scopeNote', text: scopeNoteInput.value.trim() };
+        const example = { type: 'example', text: exampleInput.value.trim() };
+        const allNotes = [definition, scopeNote, example].filter(n => n.text);
+        
+        const broaderConceptId = broaderConceptSelect.value || null;
+        const relatedConceptIds = Array.from(relatedConceptsSelect.selectedOptions).map(opt => opt.value);
+
+        try {
+            let currentConceptId = conceptId;
+
+            // --- Transacción para guardar el concepto ---
+            // 1. Crear o identificar el concepto
+            if (!currentConceptId) {
+                // Crear nuevo concepto
+                const { data, error } = await supabase
+                    .from('concepts')
+                    .insert({ thesaurus_id: thesaurusId })
+                    .select('id')
+                    .single();
+                if (error) throw error;
+                currentConceptId = data.id;
+            }
+
+            // 2. Borrar y re-insertar etiquetas y notas (más simple que hacer un diff)
+            await Promise.all([
+                supabase.from('labels').delete().eq('concept_id', currentConceptId),
+                supabase.from('notes').delete().eq('concept_id', currentConceptId)
+            ]);
+
+            const labelsToInsert = allLabels.map(l => ({ concept_id: currentConceptId, label_type: l.type, label_text: l.text }));
+            const notesToInsert = allNotes.map(n => ({ concept_id: currentConceptId, note_type: n.type, note_text: n.text }));
+
+            const { error: labelsError } = await supabase.from('labels').insert(labelsToInsert);
+            if (labelsError) throw labelsError;
+            
+            if (notesToInsert.length > 0) {
+                const { error: notesError } = await supabase.from('notes').insert(notesToInsert);
+                if (notesError) throw notesError;
+            }
+
+            // 3. Gestionar relaciones
+            // Borrar relaciones existentes para este concepto
+            await supabase.from('relationships').delete().or(`source_concept_id.eq.${currentConceptId},target_concept_id.eq.${currentConceptId}`);
+            
+            const relationshipsToInsert = [];
+            // Relación broader/narrower
+            if (broaderConceptId) {
+                relationshipsToInsert.push({ source_concept_id: currentConceptId, target_concept_id: broaderConceptId, relationship_type: 'broader' });
+                relationshipsToInsert.push({ source_concept_id: broaderConceptId, target_concept_id: currentConceptId, relationship_type: 'narrower' });
+            }
+            // Relaciones related
+            relatedConceptIds.forEach(relatedId => {
+                relationshipsToInsert.push({ source_concept_id: currentConceptId, target_concept_id: relatedId, relationship_type: 'related' });
+                relationshipsToInsert.push({ source_concept_id: relatedId, target_concept_id: currentConceptId, relationship_type: 'related' });
+            });
+
+            if (relationshipsToInsert.length > 0) {
+                 const { error: relsError } = await supabase.from('relationships').insert(relationshipsToInsert);
+                 if (relsError) throw relsError;
+            }
+
+            Swal.fire('Éxito', 'Concepto guardado correctamente.', 'success');
+            await fetchAllConceptData(); // Recargar todos los datos
+            clearForm();
+
         } catch (error) {
-            console.error('Error adding term:', error);
-            Swal.fire('Error', 'Error al añadir el término.', 'error');
+            console.error('Error saving concept:', error);
+            Swal.fire('Error', `No se pudo guardar el concepto: ${error.message}`, 'error');
         }
     }
+    
+    async function deleteConcept() {
+        const conceptId = conceptIdInput.value;
+        if (!conceptId) return;
 
-    async function updateTerm(id, name, scope_note) {
-        try {
-            const { data, error } = await supabase
-                .from('terms')
-                .update({ name, scope_note })
-                .eq('id', id)
-                .select()
-                .single();
-            if (error) throw error;
-
-            const index = state.terms.findIndex(t => t.id === id);
-            if (index !== -1) state.terms[index] = data;
-
-            updateAll();
-            Swal.fire('Éxito', 'Término actualizado correctamente.', 'success');
-        } catch (error) {
-            console.error('Error updating term:', error);
-            Swal.fire('Error', 'Error al actualizar el término.', 'error');
-        }
-    }
-
-    async function deleteTerm(id) {
         const result = await Swal.fire({
             title: '¿Estás seguro?',
-            text: "¡No podrás revertir esto!",
+            text: "¡Se eliminará el concepto y todas sus relaciones asociadas!",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
+            confirmButtonColor: '#d33',
             confirmButtonText: 'Sí, ¡elimínalo!'
         });
 
-        if (!result.isConfirmed) return;
+        if (result.isConfirmed) {
+            try {
+                // ON DELETE CASCADE se encarga del resto (labels, notes, relationships)
+                const { error } = await supabase.from('concepts').delete().eq('id', conceptId);
+                if (error) throw error;
 
-        try {
-            // Gracias a ON DELETE CASCADE en la DB, solo necesitamos eliminar el término.
-            const { error } = await supabase.from('terms').delete().eq('id', id);
-            if (error) throw error;
-
-            // Actualiza el estado local.
-            state.terms = state.terms.filter(t => t.id !== id);
-            state.relationships = state.relationships.filter(r => r.source_term_id !== id && r.target_term_id !== id);
-
-            updateAll();
-            clearForm();
-            Swal.fire('¡Eliminado!', 'El término ha sido eliminado.', 'success');
-        } catch (error) {
-            console.error('Error deleting term:', error);
-            Swal.fire('Error', 'Error al eliminar el término.', 'error');
-        }
-    }
-
-    async function addRelationship(source_id, target_id, type) {
-        try {
-            const relationshipsToInsert = [{
-                source_term_id: source_id,
-                target_term_id: target_id,
-                relationship_type: type
-            }];
-
-            if (type === 'BT') {
-                relationshipsToInsert.push({
-                    source_term_id: target_id,
-                    target_term_id: source_id,
-                    relationship_type: 'NT' // Narrower Term
-                });
+                Swal.fire('Eliminado', 'El concepto ha sido eliminado.', 'success');
+                await fetchAllConceptData();
+                clearForm();
+            } catch (error) {
+                console.error('Error deleting concept:', error);
+                Swal.fire('Error', 'No se pudo eliminar el concepto.', 'error');
             }
-
-            const { data, error } = await supabase.from('relationships').insert(relationshipsToInsert).select();
-            if (error) throw error;
-
-            state.relationships.push(...data);
-            updateAll();
-            Swal.fire('Éxito', 'Relación creada correctamente.', 'success');
-        } catch (error) {
-            console.error('Error adding relationship:', error);
-            Swal.fire('Error', 'Error al crear la relación. ¿Quizás ya existe?', 'error');
         }
     }
+
 
     // --- 7. FUNCIONES DE D3 (VISUALIZACIÓN) ---
     function updateGraph() {
-        const nodes = state.terms;
-        const links = state.relationships.map(d => ({ ...d, source: d.source_term_id, target: d.target_term_id }));
+        const nodes = state.concepts.map(c => ({
+            id: c.id,
+            name: c.labels.find(l => l.label_type === 'prefLabel')?.label_text || 'Sin Etiqueta',
+            fullConcept: c
+        }));
+        
+        const relationships = [];
+        state.concepts.forEach(c => {
+            c.relationships.forEach(r => {
+                // Solo añadir una dirección de la relación para no duplicar líneas
+                if (r.relationship_type === 'broader' || r.relationship_type === 'related' && r.source_concept_id < r.target_concept_id) {
+                     relationships.push({
+                        ...r,
+                        source: r.source_concept_id,
+                        target: r.target_concept_id
+                    });
+                }
+            });
+        });
 
         const node = nodeGroup.selectAll(".node")
             .data(nodes, d => d.id)
@@ -336,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     nodeEnter.append("circle")
                         .attr("r", 10)
                         .attr("fill", "#2c5282")
-                        .on("click", (event, d) => showTermDetails(d))
+                        .on("click", (event, d) => showConceptDetails(d.fullConcept))
                         .on("mouseover", showTooltip)
                         .on("mousemove", moveTooltip)
                         .on("mouseout", hideTooltip);
@@ -350,18 +431,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         .on("end", dragended));
                     return nodeEnter;
                 },
-                update => update,
+                update => update.select('text').text(d => d.name), // Actualizar nombre si cambia
                 exit => exit.remove()
             );
 
         const link = linkGroup.selectAll("line")
-            .data(links, d => d.id)
+            .data(relationships, d => d.id)
             .join("line")
             .attr("class", d => `link ${d.relationship_type}`)
             .attr("stroke-width", 2);
 
         simulation.nodes(nodes);
-        simulation.force("link").links(links);
+        simulation.force("link").links(relationships);
         simulation.alpha(1).restart();
 
         simulation.on("tick", () => {
@@ -391,9 +472,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showTooltip(event, d) {
-        if (d.scope_note) {
+        const scopeNote = d.fullConcept.notes.find(n => n.note_type === 'scopeNote')?.note_text;
+        if (scopeNote) {
             tooltip.classList.remove('hidden');
-            tooltip.innerHTML = d.scope_note;
+            tooltip.innerHTML = scopeNote;
             moveTooltip(event);
         }
     }
@@ -412,88 +494,105 @@ document.addEventListener('DOMContentLoaded', () => {
     svg.call(zoom);
 
     // --- 8. FUNCIONES DE UI ---
-    function populateTermDropdowns() {
-        const options = state.terms
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map(term => `<option value="${term.id}">${term.name}</option>`).join('');
-        sourceTermSelect.innerHTML = options;
-        targetTermSelect.innerHTML = options;
+    function populateConceptDropdowns(currentConceptId = null) {
+        const sortedConcepts = [...state.concepts].sort((a, b) => {
+            const nameA = a.labels.find(l => l.label_type === 'prefLabel')?.label_text || '';
+            const nameB = b.labels.find(l => l.label_type === 'prefLabel')?.label_text || '';
+            return nameA.localeCompare(nameB);
+        });
+
+        const options = sortedConcepts
+            .filter(c => c.id !== currentConceptId) // No puede ser su propio padre
+            .map(c => {
+                const prefLabel = c.labels.find(l => l.label_type === 'prefLabel')?.label_text;
+                return `<option value="${c.id}">${prefLabel || c.id}</option>`;
+            }).join('');
+
+        broaderConceptSelect.innerHTML = `<option value="">-- Ninguno --</option>${options}`;
+        relatedConceptsSelect.innerHTML = options;
     }
 
-    function showTermDetails(term) {
-        termIdInput.value = term.id;
-        termNameInput.value = term.name;
-        termScopeNoteInput.value = term.scope_note || '';
-        addTermBtn.disabled = true;
-        updateTermBtn.disabled = false;
-        deleteTermBtn.disabled = false;
+    function showConceptDetails(concept) {
+        clearForm();
+        conceptIdInput.value = concept.id;
+
+        prefLabelInput.value = concept.labels.find(l => l.label_type === 'prefLabel')?.label_text || '';
+        altLabelsInput.value = concept.labels.filter(l => l.label_type === 'altLabel').map(l => l.label_text).join('\n');
+        hiddenLabelsInput.value = concept.labels.filter(l => l.label_type === 'hiddenLabel').map(l => l.label_text).join('\n');
+
+        definitionInput.value = concept.notes.find(n => n.note_type === 'definition')?.note_text || '';
+        scopeNoteInput.value = concept.notes.find(n => n.note_type === 'scopeNote')?.note_text || '';
+        exampleInput.value = concept.notes.find(n => n.note_type === 'example')?.note_text || '';
+        
+        populateConceptDropdowns(concept.id);
+
+        // Seleccionar relaciones
+        const broaderRel = concept.relationships.find(r => r.relationship_type === 'broader');
+        broaderConceptSelect.value = broaderRel ? broaderRel.target_concept_id : '';
+
+        const relatedIds = concept.relationships.filter(r => r.relationship_type === 'related').map(r => r.target_concept_id);
+        Array.from(relatedConceptsSelect.options).forEach(opt => {
+            opt.selected = relatedIds.includes(opt.value);
+        });
+
+        deleteConceptBtn.disabled = false;
     }
 
     function clearForm() {
-        termForm.reset();
-        termIdInput.value = '';
-        addTermBtn.disabled = false;
-        updateTermBtn.disabled = true;
-        deleteTermBtn.disabled = true;
+        conceptForm.reset();
+        conceptIdInput.value = '';
+        relatedConceptsSelect.selectedIndex = -1; // Deseleccionar 'multiple' select
+        deleteConceptBtn.disabled = true;
+        populateConceptDropdowns();
     }
 
     function updateAll() {
         updateGraph();
-        populateTermDropdowns();
+        populateConceptDropdowns();
     }
 
     // --- 9. MANEJADORES DE EVENTOS ---
-    termForm.addEventListener('submit', (e) => {
+    conceptForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        if (termIdInput.value) return;
-        addTerm(termNameInput.value, termScopeNoteInput.value);
-        termForm.reset();
+        saveConcept();
     });
-
-    updateTermBtn.addEventListener('click', () => {
-        const id = termIdInput.value;
-        if (!id) return;
-        updateTerm(id, termNameInput.value, termScopeNoteInput.value);
-    });
-
-    deleteTermBtn.addEventListener('click', () => {
-        const id = termIdInput.value;
-        if (!id) return;
-        deleteTerm(id);
-    });
-
+    
+    deleteConceptBtn.addEventListener('click', deleteConcept);
     clearFormBtn.addEventListener('click', clearForm);
-
-    relationshipForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const source_id = sourceTermSelect.value;
-        const target_id = targetTermSelect.value;
-        const type = relationshipTypeSelect.value;
-        if (source_id === target_id) {
-            Swal.fire('Error', 'Un término no puede relacionarse consigo mismo.', 'error');
-            return;
-        }
-        addRelationship(source_id, target_id, type);
-    });
 
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
         d3.selectAll(".node")
-            .classed("highlighted", d => query && d.name.toLowerCase().includes(query));
+            .classed("highlighted", d => {
+                if (!query) return false;
+                const prefLabel = d.fullConcept.labels.find(l => l.label_type === 'prefLabel')?.label_text.toLowerCase() || '';
+                const altLabels = d.fullConcept.labels.filter(l => l.label_type === 'altLabel').map(l => l.label_text.toLowerCase());
+                return prefLabel.includes(query) || altLabels.some(l => l.includes(query));
+            });
     });
 
-    // --- 10. IMPORTACIÓN / EXPORTACIÓN ---
+    // --- 10. IMPORTACIÓN / EXPORTACIÓN (SKOS-based) ---
     exportBtn.addEventListener('click', () => {
+        if (state.concepts.length === 0) {
+            Swal.fire('Info', 'No hay conceptos para exportar.', 'info');
+            return;
+        }
+        // Estructura de exportación más limpia
         const dataToExport = {
-            terms: state.terms,
-            relationships: state.relationships.map(({ source, target, ...rest }) => rest)
+            concepts: state.concepts.map(c => ({
+                id: c.id,
+                labels: c.labels.map(({ concept_id, ...rest }) => rest),
+                notes: c.notes.map(({ concept_id, ...rest }) => rest),
+                relationships: c.relationships.map(({ id, created_at, ...rest }) => rest)
+            }))
         };
+
         const dataStr = JSON.stringify(dataToExport, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'thesaurus_export.json';
+        a.download = `thesaurus_skos_export_${state.activeThesaurusId}.json`;
         a.click();
         URL.revokeObjectURL(url);
     });
@@ -505,42 +604,59 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = async (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                if (!data.terms || !data.relationships) throw new Error('Formato de archivo inválido.');
+                if (!data.concepts || !Array.isArray(data.concepts)) throw new Error('Formato de archivo inválido. Se esperaba un objeto con una propiedad "concepts".');
 
                 const result = await Swal.fire({
                     title: '¿Estás seguro?',
-                    text: `Vas a importar ${data.terms.length} términos y ${data.relationships.length} relaciones al tesauro actual. ¿Continuar?`,
+                    text: `Vas a importar ${data.concepts.length} conceptos al tesauro actual. Esto no eliminará los conceptos existentes. ¿Continuar?`,
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
                     confirmButtonText: 'Sí, ¡importar!'
                 });
 
                 if (!result.isConfirmed) return;
+                
+                loader.classList.remove('hidden');
 
-                const termsToInsert = data.terms.map(t => ({ ...t, thesaurus_id: state.activeThesaurusId }));
+                for (const concept of data.concepts) {
+                    // 1. Insertar el concepto
+                    const { data: newConcept, error: conceptError } = await supabase
+                        .from('concepts')
+                        .insert({ thesaurus_id: state.activeThesaurusId })
+                        .select('id')
+                        .single();
+                    if (conceptError) throw conceptError;
 
-                const { error: termsError } = await supabase.from('terms').insert(termsToInsert);
-                if (termsError) throw termsError;
+                    // 2. Insertar labels y notes
+                    if (concept.labels && concept.labels.length > 0) {
+                        const labelsToInsert = concept.labels.map(l => ({ ...l, concept_id: newConcept.id }));
+                        await supabase.from('labels').insert(labelsToInsert);
+                    }
+                    if (concept.notes && concept.notes.length > 0) {
+                        const notesToInsert = concept.notes.map(n => ({ ...n, concept_id: newConcept.id }));
+                        await supabase.from('notes').insert(notesToInsert);
+                    }
+                    // NOTA: Las relaciones no se importan en este flujo simplificado para evitar conflictos de ID.
+                    // Una importación completa requeriría mapear los IDs antiguos a los nuevos.
+                }
 
-                const { error: relsError } = await supabase.from('relationships').insert(data.relationships);
-                if (relsError) throw relsError;
-
-                Swal.fire('¡Éxito!', 'Importación completada con éxito.', 'success');
-                fetchInitialData();
+                Swal.fire('¡Éxito!', 'Importación completada. Las relaciones no se importan en este proceso.', 'success');
+                await fetchAllConceptData();
             } catch (error) {
                 console.error('Error importing data:', error);
-                Swal.fire('Error', 'Error al importar el archivo. Revisa la consola.', 'error');
+                Swal.fire('Error', `Error al importar el archivo: ${error.message}`, 'error');
+            } finally {
+                 loader.classList.add('hidden');
+                 importInput.value = '';
             }
         };
         reader.readAsText(file);
-        importInput.value = '';
     });
 
+
     // --- 11. INICIALIZACIÓN ---
-    function initialize() {
-        fetchUserThesauruses();
+    async function initialize() {
+        await fetchUserThesauruses();
     }
 
     checkUserSession();

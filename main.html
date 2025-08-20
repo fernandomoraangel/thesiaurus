@@ -25,39 +25,53 @@
                 <input type="search" id="search-input" placeholder="Buscar y resaltar...">
             </section>
 
-            <!-- SECCIÓN DE GESTIÓN DE TÉRMINOS -->
+            <!-- EDITOR DE CONCEPTOS SKOS -->
             <section class="control-section">
-                <h2>Gestionar Término</h2>
-                <form id="term-form">
-                    <input type="hidden" id="term-id">
-                    <label for="term-name">Término:</label>
-                    <input type="text" id="term-name" required placeholder="Ej: Biología Molecular">
-                    <label for="term-scope-note">Nota de Alcance:</label>
-                    <textarea id="term-scope-note" rows="4" placeholder="Definición o descripción..."></textarea>
-                    <div class="button-group">
-                        <button type="submit" id="add-term-btn">Añadir Nuevo</button>
-                        <button type="button" id="update-term-btn" disabled>Guardar Cambios</button>
-                        <button type="button" id="delete-term-btn" class="danger" disabled>Eliminar Término</button>
-                        <button type="button" id="clear-form-btn">Limpiar</button>
-                    </div>
-                </form>
-            </section>
+                <h2>Editor de Conceptos (SKOS)</h2>
+                <form id="concept-form">
+                    <input type="hidden" id="concept-id">
 
-            <!-- SECCIÓN DE GESTIÓN DE RELACIONES -->
-            <section class="control-section">
-                <h2>Crear Relación</h2>
-                <form id="relationship-form">
-                    <label for="source-term">Término Origen:</label>
-                    <select id="source-term" required></select>
-                    <label for="relationship-type">Tipo de Relación:</label>
-                    <select id="relationship-type" required>
-                        <option value="BT">BT (Término Genérico)</option>
-                        <option value="RT">RT (Término Relacionado)</option>
-                        <option value="UF">UF (Usado Para / Sinónimo)</option>
-                    </select>
-                    <label for="target-term">Término Destino:</label>
-                    <select id="target-term" required></select>
-                    <button type="submit">Crear Relación</button>
+                    <!-- Etiquetas -->
+                    <fieldset>
+                        <legend>Etiquetas</legend>
+                        <label for="pref-label">Etiqueta Preferida (prefLabel):</label>
+                        <input type="text" id="pref-label" required placeholder="El descriptor principal...">
+                        
+                        <label for="alt-labels">Etiquetas Alternativas (altLabel):</label>
+                        <textarea id="alt-labels" rows="3" placeholder="Sinónimos, variantes... (uno por línea)"></textarea>
+                        
+                        <label for="hidden-labels">Etiquetas Ocultas (hiddenLabel):</label>
+                        <textarea id="hidden-labels" rows="2" placeholder="Errores ortográficos comunes... (uno por línea)"></textarea>
+                    </fieldset>
+
+                    <!-- Notas -->
+                    <fieldset>
+                        <legend>Notas de Documentación</legend>
+                        <label for="definition">Definición (definition):</label>
+                        <textarea id="definition" rows="4" placeholder="Definición formal y precisa del concepto..."></textarea>
+                        
+                        <label for="scope-note">Nota de Alcance (scopeNote):</label>
+                        <textarea id="scope-note" rows="3" placeholder="Aclaraciones sobre el uso del concepto..."></textarea>
+                        
+                        <label for="example">Ejemplo (example):</label>
+                        <textarea id="example" rows="2" placeholder="Ejemplo de uso del concepto..."></textarea>
+                    </fieldset>
+
+                    <!-- Relaciones -->
+                    <fieldset>
+                        <legend>Relaciones Semánticas</legend>
+                        <label for="broader-concept">Término Genérico (broader):</label>
+                        <select id="broader-concept"><option value="">-- Ninguno --</option></select>
+                        
+                        <label for="related-concepts">Términos Relacionados (related):</label>
+                        <select id="related-concepts" multiple></select>
+                    </fieldset>
+
+                    <div class="button-group">
+                        <button type="submit" id="save-concept-btn">Guardar Concepto</button>
+                        <button type="button" id="delete-concept-btn" class="danger" disabled>Eliminar Concepto</button>
+                        <button type="button" id="clear-form-btn">Limpiar Formulario</button>
+                    </div>
                 </form>
             </section>
 
