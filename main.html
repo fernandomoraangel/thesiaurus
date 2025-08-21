@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <div id="app-container">
@@ -128,6 +130,8 @@
                     <button id="export-json-btn">Exportar a JSON</button>
                     <label class="file-input-label" for="import-json-input">Importar a JSON</label>
                     <input type="file" id="import-json-input" accept=".json" style="display: none;">
+                    <button id="summary-btn">Ver Resumen</button>
+                    <button id="export-summary-btn">Exportar Resumen</button>
                 </div>
             </section>
         </div>
@@ -147,6 +151,19 @@
                 <button id="modal-close-btn" class="modal-close">&times;</button>
             </div>
             <div id="modal-body">
+                <!-- El contenido se inyectará aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA RESUMEN DEL TESAURO -->
+    <div id="summary-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="summary-modal-title">Resumen del Tesauro</h3>
+                <button id="summary-modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="summary-modal-body">
                 <!-- El contenido se inyectará aquí -->
             </div>
         </div>

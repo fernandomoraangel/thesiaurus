@@ -378,3 +378,42 @@ button.danger:hover {
 #modal-body::-webkit-scrollbar-thumb:hover {
     background-color: #718096;
 }
+
+#summary-modal-body {
+    padding: 2rem;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+
+.summary-title {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: 2rem;
+}
+
+.summary-concept {
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.summary-concept h2 {
+    font-size: 1.5rem;
+    color: var(--text-color);
+    margin-bottom: 1rem;
+}
+
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.summary-table td {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.summary-label {
+    font-weight: bold;
+    width: 200px;
+}
