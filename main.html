@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editor de Tesauros</title>
+    <title>Cronaurus- Editor de Tesauros</title>
     <link rel="stylesheet" href="style.css">
     <!-- Carga de librerías desde CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -15,13 +15,13 @@
         <!-- PANEL DE CONTROL (IZQUIERDA) -->
         <div id="control-panel">
             <header>
-                <h1>Editor de Tesauros</h1>
+                <h1>Cronaurus- Editor de Tesauros</h1>
                 <p>Crea y visualiza tesauros de forma interactiva.</p>
             </header>
 
             <!-- SECCIÓN DE USUARIO -->
             <section class="control-section">
-                <h2>Usuario</h2>
+                <h2>Usuario <span id="user-email"></span></h2>
                 <div class="button-group">
                     <button id="logout-btn">Cerrar Sesión</button>
                 </div>
@@ -61,16 +61,6 @@
                     <input type="date" id="thesaurus-published_at">
                     <button type="submit">Guardar Detalles</button>
                 </form>
-            </section>
-
-            <!-- SECCIÓN DE IMPORTACIÓN/EXPORTACIÓN -->
-            <section class="control-section">
-                <h2>Datos del Tesauro Actual</h2>
-                <div class="button-group">
-                    <button id="export-json-btn">Exportar a JSON</button>
-                    <label class="file-input-label" for="import-json-input">Importar a JSON</label>
-                    <input type="file" id="import-json-input" accept=".json" style="display: none;">
-                </div>
             </section>
 
             <!-- SECCIÓN DE BÚSQUEDA -->
@@ -127,6 +117,16 @@
                         <button type="button" id="clear-form-btn">Limpiar Formulario</button>
                     </div>
                 </form>
+            </section>
+
+            <!-- SECCIÓN DE IMPORTACIÓN/EXPORTACIÓN -->
+            <section class="control-section">
+                <h2>Exportar e importar Tesauros</h2>
+                <div class="button-group">
+                    <button id="export-json-btn">Exportar a JSON</button>
+                    <label class="file-input-label" for="import-json-input">Importar a JSON</label>
+                    <input type="file" id="import-json-input" accept=".json" style="display: none;">
+                </div>
             </section>
         </div>
 

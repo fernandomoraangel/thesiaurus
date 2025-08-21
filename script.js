@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tooltip = document.getElementById('tooltip');
     const visPanel = document.getElementById('visualization-panel');
     const logoutBtn = document.getElementById('logout-btn');
+    const userEmail = document.getElementById('user-email');
     
     // Elementos del gestor de tesauros
     const thesaurusSelect = document.getElementById('thesaurus-select');
@@ -81,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = '/index.html';
         } else {
             state.user = session.user;
+            userEmail.textContent = state.user.email;
             initialize();
         }
     }
