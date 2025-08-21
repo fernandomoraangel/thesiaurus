@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const thesaurusLanguageInput = document.getElementById('thesaurus-language');
     const thesaurusLicenseInput = document.getElementById('thesaurus-license');
     const thesaurusPublishedAtInput = document.getElementById('thesaurus-published_at');
+    const thesaurusDescriptionInput = document.getElementById('thesaurus-description');
 
     // Elementos del formulario de conceptos (SKOS)
     const conceptForm = document.getElementById('concept-form');
@@ -134,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         thesaurusLanguageInput.value = thesaurus.language || '';
         thesaurusLicenseInput.value = thesaurus.license || '';
         thesaurusPublishedAtInput.value = thesaurus.published_at ? thesaurus.published_at.split('T')[0] : '';
+        thesaurusDescriptionInput.value = thesaurus.description || '';
     }
 
     newThesaurusForm.addEventListener('submit', async (e) => {
@@ -247,7 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
             version: thesaurusVersionInput.value,
             language: thesaurusLanguageInput.value,
             license: thesaurusLicenseInput.value,
-            published_at: thesaurusPublishedAtInput.value || null
+            published_at: thesaurusPublishedAtInput.value || null,
+            description: thesaurusDescriptionInput.value
         };
 
         const { error } = await supabase
