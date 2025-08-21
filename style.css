@@ -57,6 +57,16 @@ header p {
     margin-top: 0;
 }
 
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.toggle-collapse {
+    font-weight: bold;
+}
+
 /* --- FORMULARIOS Y BOTONES --- */
 form {
     display: flex;

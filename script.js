@@ -121,7 +121,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderThesaurusDetails(thesaurus) {
-        if (!thesaurus) return;
+        if (!thesaurus) {
+            thesaurusDetailsForm.classList.add('hidden');
+            return;
+        }
+        thesaurusDetailsForm.classList.remove('hidden');
         thesaurusUriInput.value = thesaurus.uri || '';
         thesaurusAuthorInput.value = thesaurus.author || '';
         thesaurusVersionInput.value = thesaurus.version || '';
@@ -256,6 +260,15 @@ document.addEventListener('DOMContentLoaded', () => {
             state.thesauruses[index] = { ...state.thesauruses[index], ...updatedDetails };
             Swal.fire('Éxito', 'Detalles del tesauro guardados.', 'success');
         }
+    });
+
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const content = header.nextElementSibling;
+            const toggle = header.querySelector('.toggle-collapse');
+            content.classList.toggle('hidden');
+            toggle.textContent = content.classList.contains('hidden') ? '+' : '-';
+        });
     });
 
 
