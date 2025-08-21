@@ -727,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     });
 
-    importInput.addEventListener('change', (e) => {
+    importInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -760,21 +760,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     conceptIdMap.set(oldId, newConcept.id);
 
                     if (concept.labels) {
-                        const labelsToInsert = concept.labels.map(l => ({ ...l, concept_id: newConcept.id, id: undefined }));
+                        const labelsToInsert = concept.labels.map(l => ({ label_type: l.label_type, label_text: l.label_text, concept_id: newConcept.id }));
                         await supabase.from('labels').insert(labelsToInsert);
                     }
                     if (concept.notes) {
-                        const notesToInsert = concept.notes.map(n => ({ ...n, concept_id: newConcept.id, id: undefined }));
+                        const notesToInsert = concept.notes.map(n => ({ note_type: n.note_type, note_text: n.note_text, concept_id: newConcept.id }));
                         await supabase.from('notes').insert(notesToInsert);
                     }
                 }
 
                 if (data.relationships) {
                     const relsToInsert = data.relationships.map(r => ({
-                        ...r,
-                        id: undefined,
                         source_concept_id: conceptIdMap.get(r.source_concept_id),
-                        target_concept_id: conceptIdMap.get(r.target_concept_id)
+                        target_concept_id: conceptIdMap.get(r.target_concept_id),
+                        relationship_type: r.relationship_type
                     })).filter(r => r.source_concept_id && r.target_concept_id);
                     await supabase.from('relationships').insert(relsToInsert);
                 }
