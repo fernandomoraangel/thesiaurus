@@ -3,7 +3,7 @@
     --primary-color: #2c5282;
     --secondary-color: #a0aec0;
     --background-color: #f7fafc;
-    --panel-background: #ffffff;
+    --panel-background: #eaf4ff;
     --border-color: #e2e8f0;
     --text-color: #2d3748;
     --danger-color: #c53030;
@@ -51,10 +51,12 @@ header p {
 }
 
 .control-section h2 {
-    font-size: 1.1rem;
-    border-bottom: 1px solid var(--border-color);
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
     padding-bottom: 0.5rem;
     margin-top: 0;
+    margin-bottom: 1rem;
 }
 
 .collapsible-header {
