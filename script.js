@@ -16,9 +16,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Elementos del gestor de tesauros
     const thesaurusSelect = document.getElementById('thesaurus-select');
     const newThesaurusForm = document.getElementById('new-thesaurus-form');
-    const newThesaurusNameInput = document.getElementById('new-thesaurus-name');
+    const newThesaurusTitleInput = document.getElementById('new-thesaurus-title');
     const renameThesaurusBtn = document.getElementById('rename-thesaurus-btn');
     const deleteThesaurusBtn = document.getElementById('delete-thesaurus-btn');
+    const thesaurusDetailsForm = document.getElementById('thesaurus-details-form');
+
+    // Elementos del formulario de detalles del tesauro
+    const thesaurusUriInput = document.getElementById('thesaurus-uri');
+    const thesaurusAuthorInput = document.getElementById('thesaurus-author');
+    const thesaurusVersionInput = document.getElementById('thesaurus-version');
+    const thesaurusLanguageInput = document.getElementById('thesaurus-language');
+    const thesaurusLicenseInput = document.getElementById('thesaurus-license');
+    const thesaurusPublishedAtInput = document.getElementById('thesaurus-published_at');
 
     // Elementos del formulario de conceptos (SKOS)
     const conceptForm = document.getElementById('concept-form');
@@ -85,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchUserThesauruses() {
         const { data, error } = await supabase
             .from('thesauruses')
-            .select('id, name')
+            .select('*')
             .eq('user_id', state.user.id);
 
         if (error) {
@@ -96,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderThesaurusSelector();
         if (data.length > 0) {
             state.activeThesaurusId = data[0].id;
+            renderThesaurusDetails(data[0]);
             await fetchAllConceptData();
         } else {
             state.concepts = [];
@@ -106,16 +116,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderThesaurusSelector() {
         thesaurusSelect.innerHTML = state.thesauruses
-            .map(t => `<option value="${t.id}">${t.name}</option>`)
+            .map(t => `<option value="${t.id}">${t.title}</option>`)
             .join('');
+    }
+
+    function renderThesaurusDetails(thesaurus) {
+        if (!thesaurus) return;
+        thesaurusUriInput.value = thesaurus.uri || '';
+        thesaurusAuthorInput.value = thesaurus.author || '';
+        thesaurusVersionInput.value = thesaurus.version || '';
+        thesaurusLanguageInput.value = thesaurus.language || '';
+        thesaurusLicenseInput.value = thesaurus.license || '';
+        thesaurusPublishedAtInput.value = thesaurus.published_at ? thesaurus.published_at.split('T')[0] : '';
     }
 
     newThesaurusForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = newThesaurusNameInput.value;
+        const title = newThesaurusTitleInput.value;
         const { data, error } = await supabase
             .from('thesauruses')
-            .insert({ name, user_id: state.user.id })
+            .insert({ title, user_id: state.user.id })
             .select()
             .single();
 
@@ -127,18 +147,19 @@ document.addEventListener('DOMContentLoaded', () => {
         renderThesaurusSelector();
         thesaurusSelect.value = data.id;
         state.activeThesaurusId = data.id;
+        renderThesaurusDetails(data);
         await fetchAllConceptData();
-        newThesaurusNameInput.value = '';
+        newThesaurusTitleInput.value = '';
     });
     
     renameThesaurusBtn.addEventListener('click', async () => {
         const thesaurusId = state.activeThesaurusId;
         if (!thesaurusId) return;
 
-        const { value: newName } = await Swal.fire({
+        const { value: newTitle } = await Swal.fire({
             title: 'Renombrar Tesauro',
             input: 'text',
-            inputValue: state.thesauruses.find(t => t.id === thesaurusId).name,
+            inputValue: state.thesauruses.find(t => t.id === thesaurusId).title,
             showCancelButton: true,
             inputValidator: (value) => {
                 if (!value) {
@@ -147,17 +168,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        if (newName) {
+        if (newTitle) {
             const { error } = await supabase
                 .from('thesauruses')
-                .update({ name: newName })
+                .update({ title: newTitle })
                 .eq('id', thesaurusId);
 
             if (error) {
                 Swal.fire('Error', 'No se pudo renombrar el tesauro.', 'error');
             } else {
                 const index = state.thesauruses.findIndex(t => t.id === thesaurusId);
-                state.thesauruses[index].name = newName;
+                state.thesauruses[index].title = newTitle;
                 renderThesaurusSelector();
                 Swal.fire('Éxito', 'Tesauro renombrado.', 'success');
             }
@@ -191,8 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderThesaurusSelector();
                 if (state.thesauruses.length > 0) {
                     state.activeThesaurusId = state.thesauruses[0].id;
+                    renderThesaurusDetails(state.thesauruses[0]);
                 } else {
                     state.activeThesaurusId = null;
+                    renderThesaurusDetails(null);
                 }
                 await fetchAllConceptData();
                 Swal.fire('Eliminado', 'El tesauro ha sido eliminado.', 'success');
@@ -202,7 +225,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     thesaurusSelect.addEventListener('change', async () => {
         state.activeThesaurusId = thesaurusSelect.value;
+        const selectedThesaurus = state.thesauruses.find(t => t.id == state.activeThesaurusId);
+        renderThesaurusDetails(selectedThesaurus);
         await fetchAllConceptData();
+    });
+
+    thesaurusDetailsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const thesaurusId = state.activeThesaurusId;
+        if (!thesaurusId) return;
+
+        const updatedDetails = {
+            uri: thesaurusUriInput.value,
+            author: thesaurusAuthorInput.value,
+            version: thesaurusVersionInput.value,
+            language: thesaurusLanguageInput.value,
+            license: thesaurusLicenseInput.value,
+            published_at: thesaurusPublishedAtInput.value || null
+        };
+
+        const { error } = await supabase
+            .from('thesauruses')
+            .update(updatedDetails)
+            .eq('id', thesaurusId);
+
+        if (error) {
+            Swal.fire('Error', 'No se pudieron guardar los detalles.', 'error');
+        } else {
+            const index = state.thesauruses.findIndex(t => t.id === thesaurusId);
+            state.thesauruses[index] = { ...state.thesauruses[index], ...updatedDetails };
+            Swal.fire('Éxito', 'Detalles del tesauro guardados.', 'success');
+        }
     });
 
 
@@ -667,7 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const result = await Swal.fire({
                     title: '¿Estás seguro?',
-                    text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`,
+                    text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`, 
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, ¡importar!'

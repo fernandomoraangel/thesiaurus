@@ -37,10 +37,30 @@
                         <button id="delete-thesaurus-btn" class="danger">Eliminar</button>
                     </div>
                     <form id="new-thesaurus-form">
-                        <input type="text" id="new-thesaurus-name" placeholder="Nombre del nuevo tesauro" required>
+                        <input type="text" id="new-thesaurus-title" placeholder="Título del nuevo tesauro" required>
                         <button type="submit">Crear Tesauro</button>
                     </form>
                 </div>
+            </section>
+
+            <!-- SECCIÓN DE DETALLES DEL TESAURO -->
+            <section class="control-section">
+                <h2>Detalles del Tesauro</h2>
+                <form id="thesaurus-details-form">
+                    <label for="thesaurus-uri">URI:</label>
+                    <input type="text" id="thesaurus-uri" placeholder="Identificador único">
+                    <label for="thesaurus-author">Autor:</label>
+                    <input type="text" id="thesaurus-author" placeholder="Responsable del tesauro">
+                    <label for="thesaurus-version">Versión:</label>
+                    <input type="text" id="thesaurus-version" placeholder="Versión actual">
+                    <label for="thesaurus-language">Idioma:</label>
+                    <input type="text" id="thesaurus-language" placeholder="es, en, fr">
+                    <label for="thesaurus-license">Licencia:</label>
+                    <input type="text" id="thesaurus-license" placeholder="Creative Commons, etc.">
+                    <label for="thesaurus-published_at">Fecha de Publicación:</label>
+                    <input type="date" id="thesaurus-published_at">
+                    <button type="submit">Guardar Detalles</button>
+                </form>
             </section>
 
             <!-- SECCIÓN DE IMPORTACIÓN/EXPORTACIÓN -->
