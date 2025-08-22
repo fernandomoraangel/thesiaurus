@@ -108,7 +108,11 @@ document.addEventListener("DOMContentLoaded", () => {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) {
-      window.location.href = "index.html";
+      // Redirección automática según entorno
+      const isGithubPages = window.location.hostname.endsWith("github.io");
+      window.location.href = isGithubPages
+        ? "/thesiaurus/index.html"
+        : "index.html";
     } else {
       state.user = session.user;
       userEmail.textContent = state.user.email;
@@ -118,7 +122,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   logoutBtn.addEventListener("click", async () => {
     await supabase.auth.signOut();
-    window.location.href = "index.html";
+    // Redirección automática según entorno
+    const isGithubPages = window.location.hostname.endsWith("github.io");
+    window.location.href = isGithubPages
+      ? "/thesiaurus/index.html"
+      : "index.html";
   });
 
   // --- 5. FUNCIONES DE GESTIÓN DE TESAUROS ---
