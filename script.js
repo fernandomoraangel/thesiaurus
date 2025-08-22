@@ -567,7 +567,7 @@ document.addEventListener("DOMContentLoaded", () => {
           doc.text("Descripción:", margin, yOffset, { align: "left" });
           yOffset += 7;
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(12);
+          doc.setFontSize(10);
           doc.setTextColor(0, 0, 0);
           const splitDescription = doc.splitTextToSize(
             thesaurus.description,
@@ -624,6 +624,7 @@ document.addEventListener("DOMContentLoaded", () => {
               label === "Etiquetas Alternativas" ||
               label === "Definición" ||
               label === "Términos Relacionados" ||
+              label == "Términos Específicos" ||
               label == "Término Genérico";
             const detailText = `${label}: ${value}`;
             const detailLines = doc.splitTextToSize(detailText, textWidth);
@@ -636,14 +637,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 doc.text(labelPart, margin + 5, yOffset, { align: "left" });
                 doc.setFont("helvetica", "normal");
                 doc.text(
-                  valuePart,
+                  "    " + valuePart,
                   margin + 5 + doc.getTextWidth(labelPart + " "),
                   yOffset,
                   { align: "justify" }
                 );
                 yOffset += 5;
                 // Salto de línea extra después de estas etiquetas
-                yOffset += 3;
               } else {
                 doc.text(line, margin + 5, yOffset, { align: "justify" });
                 yOffset += 5;
