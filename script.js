@@ -110,12 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!session) {
       // Redirección automática según entorno
       const isGithubPages = window.location.hostname.endsWith("github.io");
-      let basePath = "index.html";
-      if (isGithubPages) {
-        const repo = window.location.pathname.split("/")[1];
-        basePath = `/${repo}/index.html`;
-      }
-      window.location.href = basePath;
+      window.location.href = "./index.html";
     } else {
       state.user = session.user;
       userEmail.textContent = state.user.email;
@@ -127,12 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await supabase.auth.signOut();
     // Redirección automática según entorno
     const isGithubPages = window.location.hostname.endsWith("github.io");
-    let basePath = "index.html";
-    if (isGithubPages) {
-      const repo = window.location.pathname.split("/")[1];
-      basePath = `/${repo}/index.html`;
-    }
-    window.location.href = basePath;
+    window.location.href = "./index.html";
   });
 
   // --- 5. FUNCIONES DE GESTIÓN DE TESAUROS ---
