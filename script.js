@@ -506,117 +506,380 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Función para exportar el resumen a PDF ---
   async function exportSummaryToPdf() {
     try {
-      // Renderizar el HTML del resumen directamente al PDF
-      await doc.html(summaryElement, {
-        callback: async function (doc) {
-          // Restaurar el estado original del modal después de la renderización del resumen
-          summaryModal.style.display = originalDisplay;
-          summaryModal.style.visibility = originalVisibility;
-          summaryModal.style.position = originalPosition;
-          summaryModal.style.left = originalLeft;
-          summaryModal.style.top = originalTop;
-          summaryModal.style.zIndex = originalZIndex;
+      // Inicializar jsPDF
+      const doc = new jspdf.jsPDF();
+      const margin = 18; // margen superior ampliado
+      let yOffset = margin;
 
-          // Restore visPanel temporarily for SVG capture
-          visPanel.style.display = originalVisPanelDisplay;
-          visPanel.style.visibility = originalVisPanelVisibility;
+      // Guardar el estado original de visPanel
+      const originalVisPanelDisplay = visPanel.style.display;
+      const originalVisPanelVisibility = visPanel.style.visibility;
+      visPanel.style.display = "block"; // Asegurarse de que sea visible para la captura
+      visPanel.style.visibility = "hidden"; // Pero oculto para el usuario
 
-          // 3. Capturar el grafo (SVG dentro de visualization-panel) y agregarlo al final
-          const svgElement = document.querySelector("#visualization-panel svg");
-          if (!svgElement) {
-            console.error("SVG element not found for graph capture.");
-            Swal.fire(
-              "Error",
-              "No se encontró el elemento SVG del grafo.",
-              "error"
-            );
-            return;
-          }
+      // 1. Añadir el resumen como texto
+      const thesaurus = state.thesauruses.find(
+        (t) => t.id === state.activeThesaurusId
+      );
 
-          // Get SVG dimensions
-          const svgWidth =
-            svgElement.viewBox.baseVal.width || svgElement.clientWidth;
-          const svgHeight =
-            svgElement.viewBox.baseVal.height || svgElement.clientHeight;
+      if (thesaurus) {
+        // Título principal elegante
+        doc.setFont("times", "bold");
+        doc.setFontSize(22);
+        doc.setTextColor(44, 82, 130); // Azul oscuro
+        doc.text(thesaurus.title || "Resumen del Tesauro", margin, yOffset, {
+          align: "left",
+        });
+        yOffset += 12;
 
-          if (svgWidth === 0 || svgHeight === 0) {
-            console.error("SVG element has zero dimensions.");
-            Swal.fire(
-              "Error",
-              "El grafo SVG tiene dimensiones cero, no se puede capturar.",
-              "error"
-            );
-            return;
-          }
-
-          // Crear un canvas temporal para renderizar el SVG
-          const tempCanvas = document.createElement("canvas");
-          // Set canvas dimensions based on SVG dimensions, scaled for quality
-          tempCanvas.width = svgWidth * 2;
-          tempCanvas.height = svgHeight * 2;
-          const svgString = new XMLSerializer().serializeToString(svgElement);
-          const ctx = tempCanvas.getContext("2d");
-
-          // Crear una imagen a partir del SVG
-          const img = new Image();
-          const svgBlob = new Blob([svgString], {
-            type: "image/svg+xml;charset=utf-8",
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        if (thesaurus.author) {
+          doc.text(`Autor: ${thesaurus.author}`, margin, yOffset);
+          yOffset += 7;
+        }
+        if (thesaurus.version) {
+          doc.text(`Versión: ${thesaurus.version}`, margin, yOffset);
+          yOffset += 7;
+        }
+        if (thesaurus.language) {
+          doc.text(`Idioma: ${thesaurus.language}`, margin, yOffset);
+          yOffset += 7;
+        }
+        if (thesaurus.license) {
+          doc.text(`Licencia: ${thesaurus.license}`, margin, yOffset);
+          yOffset += 7;
+        }
+        if (thesaurus.published_at) {
+          doc.text(
+            `Fecha de Publicación: ${thesaurus.published_at.split("T")[0]}`,
+            margin,
+            yOffset
+          );
+          yOffset += 7;
+        }
+        if (thesaurus.description) {
+          yOffset += 5; // Espacio antes de la descripción
+          doc.setFont("times", "bold");
+          doc.setFontSize(15);
+          doc.setTextColor(44, 82, 130);
+          doc.text("Descripción:", margin, yOffset, { align: "left" });
+          yOffset += 7;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.setTextColor(0, 0, 0);
+          const splitDescription = doc.splitTextToSize(
+            thesaurus.description,
+            doc.internal.pageSize.getWidth() - 2 * margin
+          );
+          // Justificar cada línea de la descripción
+          splitDescription.forEach((line) => {
+            doc.text(line, margin, yOffset, { align: "justify" });
+            yOffset += 7;
           });
-          const url = URL.createObjectURL(svgBlob);
+        }
+        // Espacio mínimo antes de 'Conceptos'
+        yOffset += 2;
+      }
 
-          img.onload = async () => {
-            ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-            URL.revokeObjectURL(url);
+      // Salto de página antes de 'Conceptos'
+      doc.addPage();
+      yOffset = margin;
+      // Título elegante para 'Conceptos'
+      doc.setFont("times", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(44, 82, 130);
+      doc.text("Conceptos", margin, yOffset, { align: "left" });
+      yOffset += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
 
-            const imgDataGraph = tempCanvas.toDataURL("image/png");
-            const imgWidthGraph = 550; // Ancho deseado para la imagen en el PDF
-            const imgHeightGraph =
-              (tempCanvas.height * imgWidthGraph) / tempCanvas.width;
+      // Mejorar diagramación: ajustar salto de página y espacio entre conceptos
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const maxConceptHeight = 60; // Altura máxima estimada por concepto
+      const textWidth = pageWidth - 2 * margin - 5; // margen derecho ajustado
 
-            // Always add a new page for the graph to ensure consistent positioning
-            doc.addPage();
-            let graphYOffset = margin; // Start graph from top margin of new page
+      state.concepts.forEach((concept, index) => {
+        let conceptStartY = yOffset;
+        const prefLabel =
+          concept.labels.find((l) => l.label_type === "prefLabel")
+            ?.label_text || "Sin Etiqueta";
+        // Título elegante para cada concepto
+        doc.setFont("times", "bold");
+        doc.setFontSize(15);
+        doc.setTextColor(44, 82, 130);
+        const prefLabelLines = doc.splitTextToSize(prefLabel, textWidth);
+        doc.text(prefLabelLines, margin, yOffset, { align: "left" });
+        yOffset += prefLabelLines.length * 7;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
 
-            doc.addImage(
-              imgDataGraph,
-              "PNG",
-              margin,
-              graphYOffset,
-              imgWidthGraph,
-              imgHeightGraph
+        const addDetail = (label, value) => {
+          if (value) {
+            let isBold =
+              label === "Etiquetas Alternativas" ||
+              label === "Definición" ||
+              label === "Términos Relacionados" ||
+              label == "Término Genérico";
+            const detailText = `${label}: ${value}`;
+            const detailLines = doc.splitTextToSize(detailText, textWidth);
+            detailLines.forEach((line, idx) => {
+              if (isBold && idx === 0) {
+                // Solo la primera línea lleva la etiqueta en negrita
+                const labelPart = `${label}:`;
+                const valuePart = line.substring(labelPart.length).trim();
+                doc.setFont("helvetica", "bold");
+                doc.text(labelPart, margin + 5, yOffset, { align: "left" });
+                doc.setFont("helvetica", "normal");
+                doc.text(
+                  valuePart,
+                  margin + 5 + doc.getTextWidth(labelPart + " "),
+                  yOffset,
+                  { align: "justify" }
+                );
+                yOffset += 5;
+                // Salto de línea extra después de estas etiquetas
+                yOffset += 3;
+              } else {
+                doc.text(line, margin + 5, yOffset, { align: "justify" });
+                yOffset += 5;
+              }
+            });
+          }
+        };
+
+        addDetail(
+          "Etiquetas Alternativas",
+          concept.labels
+            .filter((l) => l.label_type === "altLabel")
+            .map((l) => l.label_text)
+            .join(", ")
+        );
+        addDetail(
+          "Etiquetas Ocultas",
+          concept.labels
+            .filter((l) => l.label_type === "hiddenLabel")
+            .map((l) => l.label_text)
+            .join(", ")
+        );
+        addDetail(
+          "Definición",
+          concept.notes.find((n) => n.note_type === "definition")?.note_text
+        );
+        addDetail(
+          "Nota de Alcance",
+          concept.notes.find((n) => n.note_type === "scopeNote")?.note_text
+        );
+        addDetail(
+          "Ejemplo",
+          concept.notes.find((n) => n.note_type === "example")?.note_text
+        );
+
+        const broader = state.relationships.find(
+          (r) =>
+            r.source_concept_id === concept.id &&
+            r.relationship_type === "broader"
+        );
+        if (broader) {
+          const broaderConcept = state.concepts.find(
+            (c) => c.id === broader.target_concept_id
+          );
+          if (broaderConcept) {
+            const broaderLabel =
+              broaderConcept.labels.find((l) => l.label_type === "prefLabel")
+                ?.label_text || "Sin Etiqueta";
+            addDetail("Término Genérico", broaderLabel);
+          }
+        }
+
+        const narrowerLabels = state.relationships
+          .filter(
+            (r) =>
+              r.source_concept_id === concept.id &&
+              r.relationship_type === "narrower"
+          )
+          .map((r) => {
+            const narrowerConcept = state.concepts.find(
+              (c) => c.id === r.target_concept_id
             );
+            return narrowerConcept
+              ? narrowerConcept.labels.find((l) => l.label_type === "prefLabel")
+                  ?.label_text || "Sin Etiqueta"
+              : "";
+          })
+          .filter(Boolean)
+          .join(", ");
+        addDetail("Términos Específicos", narrowerLabels);
 
-            // Guardar el PDF
-            const thesaurusTitle =
-              state.thesauruses.find((t) => t.id === state.activeThesaurusId)
-                ?.title || "Tesauro";
-            doc.save(`resumen_${thesaurusTitle.replace(/\s+/g, "_")}.pdf`);
-            Swal.close();
-            Swal.fire(
-              "Éxito",
-              "El PDF ha sido generado y descargado.",
-              "success"
+        const relatedLabels = state.relationships
+          .filter(
+            (r) =>
+              r.source_concept_id === concept.id &&
+              r.relationship_type === "related"
+          )
+          .map((r) => {
+            const relatedConcept = state.concepts.find(
+              (c) => c.id === r.target_concept_id
             );
-          };
-          img.onerror = (err) => {
-            console.error("Error al cargar la imagen SVG:", err);
-            Swal.fire(
-              "Error",
-              "No se pudo cargar la imagen del grafo SVG.",
-              "error"
-            );
-          };
-          img.src = url;
-        },
-        x: margin,
-        y: yOffset,
-        html2canvas: {
-          scale: 2, // Ajustar la escala para que el contenido quepa bien
-          autoPaging: "text", // Habilitar paginación automática por texto
-          width: doc.internal.pageSize.getWidth() - 2 * margin, // Ancho del contenido
-          windowWidth: summaryElement.scrollWidth, // Ancho de la ventana para html2canvas (para calcular el tamaño del contenido)
-        },
+            return relatedConcept
+              ? relatedConcept.labels.find((l) => l.label_type === "prefLabel")
+                  ?.label_text || "Sin Etiqueta"
+              : "";
+          })
+          .filter(Boolean)
+          .join(", ");
+        addDetail("Términos Relacionados", relatedLabels);
+
+        // ...sin línea divisoria entre conceptos...
+
+        // Si el concepto se desborda, hacer salto de página
+        if (
+          yOffset - conceptStartY > maxConceptHeight ||
+          yOffset > pageHeight - margin - maxConceptHeight
+        ) {
+          doc.addPage();
+          yOffset = margin;
+        }
       });
+
+      // 2. Capturar el grafo (SVG dentro de visualization-panel) y agregarlo al final
+      // No agregar página en blanco antes del grafo, solo si el espacio restante es insuficiente
+      if (yOffset > doc.internal.pageSize.getHeight() - 80) {
+        doc.addPage();
+        yOffset = margin;
+      }
+
+      const svgElement = document.querySelector("#visualization-panel svg");
+      if (!svgElement) {
+        console.error("SVG element not found for graph capture.");
+        Swal.fire(
+          "Error",
+          "No se encontró el elemento SVG del grafo.",
+          "error"
+        );
+        return;
+      }
+
+      // Incrustar los estilos CSS en el SVG para que se exporten las aristas
+      function getCSSStyles(parentElement) {
+        let css = "";
+        for (const sheet of document.styleSheets) {
+          try {
+            for (const rule of sheet.cssRules) {
+              if (
+                rule.selectorText &&
+                (rule.selectorText.includes(".link") ||
+                  rule.selectorText.includes(".node") ||
+                  rule.selectorText.includes("circle") ||
+                  rule.selectorText.includes("line"))
+              ) {
+                css += rule.cssText + "\n";
+              }
+            }
+          } catch (e) {
+            /* Ignorar errores de CORS */
+          }
+        }
+        return css;
+      }
+
+      function appendCSS(svgEl, cssText) {
+        const styleEl = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "style"
+        );
+        styleEl.setAttribute("type", "text/css");
+        styleEl.innerHTML = cssText;
+        svgEl.insertBefore(styleEl, svgEl.firstChild);
+      }
+
+      const cssText = getCSSStyles(svgElement);
+      appendCSS(svgElement, cssText);
+
+      // Get SVG dimensions
+      const svgWidth =
+        svgElement.viewBox?.baseVal?.width || svgElement.clientWidth;
+      const svgHeight =
+        svgElement.viewBox?.baseVal?.height || svgElement.clientHeight;
+
+      if (svgWidth === 0 || svgHeight === 0) {
+        console.error("SVG element has zero dimensions.");
+        Swal.fire(
+          "Error",
+          "El grafo SVG tiene dimensiones cero, no se puede capturar.",
+          "error"
+        );
+        return;
+      }
+
+      // Crear un canvas temporal para renderizar el SVG
+      const tempCanvas = document.createElement("canvas");
+      // Limitar el alto del gráfico en el PDF
+      const maxGraphHeight = doc.internal.pageSize.getHeight() - 2 * margin;
+      // Set canvas dimensions based on SVG dimensions, scaled for quality
+      tempCanvas.width = svgWidth * 2;
+      tempCanvas.height = svgHeight * 2;
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const ctx = tempCanvas.getContext("2d");
+
+      // Crear una imagen a partir del SVG
+      const img = new Image();
+      const svgBlob = new Blob([svgString], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const url = URL.createObjectURL(svgBlob);
+
+      img.onload = async () => {
+        ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+        URL.revokeObjectURL(url);
+
+        const imgDataGraph = tempCanvas.toDataURL("image/png");
+        let imgWidthGraph = doc.internal.pageSize.getWidth() - 2 * margin;
+        let imgHeightGraph =
+          (tempCanvas.height * imgWidthGraph) / tempCanvas.width;
+        // Limitar el alto del gráfico si excede la página
+        if (imgHeightGraph > maxGraphHeight) {
+          imgHeightGraph = maxGraphHeight;
+          imgWidthGraph =
+            (tempCanvas.width * imgHeightGraph) / tempCanvas.height;
+        }
+        // Centrar el gráfico horizontalmente
+        const graphX = (doc.internal.pageSize.getWidth() - imgWidthGraph) / 2;
+
+        doc.addImage(
+          imgDataGraph,
+          "PNG",
+          graphX,
+          yOffset,
+          imgWidthGraph,
+          imgHeightGraph
+        );
+
+        // Restaurar visPanel
+        visPanel.style.display = originalVisPanelDisplay;
+        visPanel.style.visibility = originalVisPanelVisibility;
+
+        // Guardar el PDF
+        const thesaurusTitle =
+          state.thesauruses.find((t) => t.id === state.activeThesaurusId)
+            ?.title || "Tesauro";
+        doc.save(`resumen_${thesaurusTitle.replace(/\s+/g, "_")}.pdf`);
+        Swal.close();
+        Swal.fire("Éxito", "El PDF ha sido generado y descargado.", "success");
+      };
+      img.onerror = (err) => {
+        console.error("Error al cargar la imagen SVG:", err);
+        Swal.fire(
+          "Error",
+          "No se pudo cargar la imagen del grafo SVG.",
+          "error"
+        );
+      };
+      img.src = url;
     } catch (error) {
       console.error("Error al exportar el resumen a PDF:", error);
       Swal.fire("Error", "No se pudo exportar el resumen a PDF.", "error");
