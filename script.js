@@ -110,7 +110,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!session) {
       // Redirección automática según entorno
       const isGithubPages = window.location.hostname.endsWith("github.io");
-      window.location.href = "./index.html";
+      if (isGithubPages) {
+        console.log("Redirigiendo a la página principal del repositorio");
+        const repo = window.location.pathname.split("/")[1];
+        window.location.href = `/${repo}/main.html`;
+      } else {
+        console.log("Redirigiendo a la página principal");
+        window.location.href = "./main.html";
+      }
     } else {
       state.user = session.user;
       userEmail.textContent = state.user.email;
