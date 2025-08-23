@@ -25,7 +25,23 @@
             <button type="submit">Iniciar Sesión</button>
         </form>
 
-        <p>¿No tienes una cuenta? <a href="/register.html">Regístrate aquí</a>.</p>
+        <p>¿No tienes una cuenta? <a id="register-link" href="/register.html">Regístrate aquí</a>.</p>
+        <script>
+            // Redirección dinámica para el enlace de registro
+            document.addEventListener('DOMContentLoaded', function () {
+                var link = document.getElementById('register-link');
+                if (link) {
+                    var isGithubPages = window.location.hostname.endsWith('github.io');
+                    if (isGithubPages) {
+                        // Extraer el nombre del repositorio
+                        var repo = window.location.pathname.split('/')[1];
+                        link.href = '/' + repo + '/register.html';
+                    } else {
+                        link.href = './register.html';
+                    }
+                }
+            });
+        </script>
     </div>
 
     <script src="auth.js"></script>
