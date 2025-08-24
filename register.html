@@ -26,7 +26,23 @@
             <button type="submit">Crear Cuenta</button>
         </form>
 
-        <p>¿Ya tienes una cuenta? <a href="/index.html">Inicia sesión aquí</a>.</p>
+        <p>¿Ya tienes una cuenta? <a id="login-link" href="/index.html">Inicia sesión aquí</a>.</p>
+        <script>
+            // Redirección dinámica para el enlace de inicio de sesión
+            document.addEventListener('DOMContentLoaded', function () {
+                var link = document.getElementById('login-link');
+                if (link) {
+                    var isGithubPages = window.location.hostname.endsWith('github.io');
+                    if (isGithubPages) {
+                        // Extraer el nombre del repositorio
+                        var repo = window.location.pathname.split('/')[1];
+                        link.href = '/' + repo + '/index.html';
+                    } else {
+                        link.href = './index.html';
+                    }
+                }
+            });
+        </script>
     </div>
 
     <script src="auth.js"></script>

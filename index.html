@@ -33,10 +33,12 @@
                 if (link) {
                     var isGithubPages = window.location.hostname.endsWith('github.io');
                     if (isGithubPages) {
+                        console.log('Redirigiendo a la página de registro del repositorio');
                         // Extraer el nombre del repositorio
                         var repo = window.location.pathname.split('/')[1];
                         link.href = '/' + repo + '/register.html';
                     } else {
+                        console.log('Redirigiendo a la página de registro');
                         link.href = './register.html';
                     }
                 }
