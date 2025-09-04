@@ -366,7 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .map(
         (cat) => `
       <li data-id="${cat.id}">
-        <span class="category-color-dot" style="background-color: ${cat.color};"></span>
+        <span class="category-color-dot" style="background-color: ${cat.color};"></span >
         <span class="category-name">${cat.name}</span>
         <div class="category-actions">
           <button class="edit-category-btn" data-id="${cat.id}">✏️</button>
@@ -485,7 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
         summary += `<li><strong>Autor:</strong> ${thesaurus.author}</li>
 `;
       if (thesaurus.version)
-        summary += `<li><strong>Versión:</b> ${thesaurus.version}</li>
+        summary += `<li><strong>Versión:</strong> ${thesaurus.version}</li>
 `;
       if (thesaurus.language)
         summary += `<li><strong>Idioma:</strong> ${thesaurus.language}</li>
@@ -1421,7 +1421,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .data(state.categories)
         .enter()
         .append("li")
-        .html(cat => `<span class="category-color-dot" style="background-color: ${cat.color};"></span>${cat.name}`)
+        .html(cat => `<span class="category-color-dot" style="background-color: ${cat.color};"></span >${cat.name}`)
         .on("click", (e, cat) => {
             setNodeCategory(d.fullConcept.id, cat.id);
             menu.remove();
@@ -1432,6 +1432,15 @@ document.addEventListener("DOMContentLoaded", () => {
         .on("click", () => {
             setNodeCategory(d.fullConcept.id, null);
             menu.remove();
+        });
+
+    list.append("hr");
+
+    list.append("li")
+        .text("Nueva categoría...")
+        .on("click", () => {
+            menu.remove();
+            promptNewCategory(d.fullConcept.id);
         });
 
     // Close menu on outside click
@@ -1457,6 +1466,75 @@ document.addEventListener("DOMContentLoaded", () => {
             concept.category_id = categoryId;
         }
         updateGraph();
+    }
+  }
+
+  async function promptNewCategory(conceptId) {
+    const { value: formValues } = await Swal.fire({
+      title: 'Crear Nueva Categoría',
+      customClass: {
+        popup: 'new-category-alert'
+      },
+      html: `
+        <div class="new-category-form">
+          <div class="form-group">
+            <label for="swal-input1">Nombre</label>
+            <input id="swal-input1" class="swal2-input" placeholder="Nombre de la categoría">
+          </div>
+          <div class="form-group">
+            <label for="swal-input2">Descripción</label>
+            <textarea id="swal-input2" class="swal2-textarea" placeholder="Descripción..."></textarea>
+          </div>
+          <div class="form-group form-group-color">
+            <label for="swal-input3">Color</label>
+            <input id="swal-input3" type="color" value="#cccccc">
+          </div>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        return [
+          document.getElementById('swal-input1').value,
+          document.getElementById('swal-input2').value,
+          document.getElementById('swal-input3').value
+        ]
+      }
+    });
+
+    if (formValues) {
+      const [name, description, color] = formValues;
+
+      if (!name) {
+        Swal.fire('Error', 'El nombre de la categoría es obligatorio.', 'error');
+        return;
+      }
+
+      const { data: newCategory, error } = await supabase
+        .from('categories')
+        .insert({
+          thesaurus_id: state.activeThesaurusId,
+          name,
+          description,
+          color
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating new category:", error);
+        Swal.fire('Error', 'No se pudo crear la nueva categoría.', 'error');
+        return;
+      }
+
+      // Add the new category to the state
+      state.categories.push(newCategory);
+      renderCategories(); // Update the category list in the editor
+
+      // Assign the new category to the concept
+      await setNodeCategory(conceptId, newCategory.id);
+      
+      Swal.fire('Éxito', `Categoría "${name}" creada y asignada.`, 'success');
     }
   }
 
@@ -1717,7 +1795,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const result = await Swal.fire({
           title: "¿Estás seguro?",
-          text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`,
+          text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`, 
           icon: "warning",
           showCancelButton: true,
           confirmButtonText: "Sí, ¡importar!",

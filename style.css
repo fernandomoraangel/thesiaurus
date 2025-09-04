@@ -517,3 +517,34 @@ button.danger:hover {
 .context-menu li:hover {
     background-color: #f0f4f8;
 }
+
+/* --- SWEETALERT CUSTOMIZATIONS --- */
+.new-category-alert {
+    width: 500px !important;
+}
+
+.new-category-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.form-group-color {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.form-group-color input[type="color"] {
+  width: 100px;
+  height: 40px;
+  padding: 0;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border-color);
+}
