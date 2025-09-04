@@ -297,7 +297,6 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     renderThesaurusDetails(selectedThesaurus);
     await fetchAllConceptData();
-    await fetchCategories();
   });
 
   thesaurusDetailsForm.addEventListener("submit", async (e) => {
@@ -1049,16 +1048,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!state.activeThesaurusId) {
       state.concepts = [];
       state.relationships = [];
+      state.categories = [];
+      renderCategories();
       updateAll();
       return;
     }
     loader.classList.remove("hidden");
     try {
-      const { data: concepts, error: conceptsError } = await supabase
-        .from("concepts")
-        .select("id, created_at, category_id")
-        .eq("thesaurus_id", state.activeThesaurusId);
-      if (conceptsError) throw conceptsError;
+      const [conceptsRes, categoriesRes] = await Promise.all([
+        supabase
+          .from("concepts")
+          .select("id, created_at, category_id")
+          .eq("thesaurus_id", state.activeThesaurusId),
+        supabase
+          .from("categories")
+          .select("*")
+          .eq("thesaurus_id", state.activeThesaurusId)
+          .order("name"),
+      ]);
+
+      if (conceptsRes.error) throw conceptsRes.error;
+      if (categoriesRes.error) throw categoriesRes.error;
+
+      state.categories = categoriesRes.data;
+      renderCategories();
+
+      const concepts = conceptsRes.data;
 
       if (concepts.length === 0) {
         state.concepts = [];
