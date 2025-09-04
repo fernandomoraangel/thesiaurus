@@ -69,11 +69,22 @@ document.addEventListener("DOMContentLoaded", () => {
     "summary-modal-close-btn"
   );
 
+  // Elementos del editor de categorías
+  const categoryForm = document.getElementById("category-form");
+  const categoryIdInput = document.getElementById("category-id");
+  const categoryNameInput = document.getElementById("category-name");
+  const categoryDescriptionInput = document.getElementById("category-description");
+  const categoryNotesInput = document.getElementById("category-notes");
+  const categoryColorInput = document.getElementById("category-color");
+  const clearCategoryFormBtn = document.getElementById("clear-category-form-btn");
+  const categoryList = document.getElementById("category-list");
+
   // --- 3. ESTADO DE LA APLICACIÓN Y CONFIGURACIÓN DE D3 ---
   let state = {
     concepts: [],
     relationships: [], // Fuente de verdad única para las relaciones
     thesauruses: [],
+    categories: [],
     activeThesaurusId: null,
     user: null,
   };
@@ -286,6 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     renderThesaurusDetails(selectedThesaurus);
     await fetchAllConceptData();
+    await fetchCategories();
   });
 
   thesaurusDetailsForm.addEventListener("submit", async (e) => {
@@ -327,6 +339,134 @@ document.addEventListener("DOMContentLoaded", () => {
       content.classList.toggle("hidden");
       toggle.textContent = content.classList.contains("hidden") ? "+" : "-";
     });
+  });
+
+  // --- 5.1. FUNCIONES DE GESTIÓN DE CATEGORÍAS ---
+  async function fetchCategories() {
+    if (!state.activeThesaurusId) {
+      state.categories = [];
+      renderCategories();
+      return;
+    }
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("thesaurus_id", state.activeThesaurusId)
+      .order("name");
+
+    if (error) {
+      console.error("Error fetching categories:", error);
+      return;
+    }
+    state.categories = data;
+    renderCategories();
+  }
+
+  function renderCategories() {
+    categoryList.innerHTML = state.categories
+      .map(
+        (cat) => `
+      <li data-id="${cat.id}">
+        <span class="category-color-dot" style="background-color: ${cat.color};"></span>
+        <span class="category-name">${cat.name}</span>
+        <div class="category-actions">
+          <button class="edit-category-btn" data-id="${cat.id}">✏️</button>
+          <button class="delete-category-btn" data-id="${cat.id}">🗑️</button>
+        </div>
+      </li>
+    `
+      )
+      .join("");
+  }
+
+  function editCategory(category) {
+    categoryIdInput.value = category.id;
+    categoryNameInput.value = category.name;
+    categoryDescriptionInput.value = category.description || "";
+    categoryNotesInput.value = category.notes || "";
+    categoryColorInput.value = category.color || "#cccccc";
+  }
+
+  async function saveCategory(e) {
+    e.preventDefault();
+    const id = categoryIdInput.value || null;
+    const categoryData = {
+      thesaurus_id: state.activeThesaurusId,
+      name: categoryNameInput.value.trim(),
+      description: categoryDescriptionInput.value.trim(),
+      notes: categoryNotesInput.value.trim(),
+      color: categoryColorInput.value,
+    };
+
+    if (!categoryData.name) {
+      Swal.fire("Error", "El nombre de la categoría es obligatorio.", "error");
+      return;
+    }
+
+    let query = supabase.from("categories");
+    if (id) {
+      query = query.update(categoryData).eq("id", id);
+    } else {
+      query = query.insert(categoryData);
+    }
+
+    const { error } = await query;
+
+    if (error) {
+      console.error("Error saving category:", error);
+      Swal.fire("Error", "No se pudo guardar la categoría.", "error");
+    } else {
+      Swal.fire("Éxito", "Categoría guardada.", "success");
+      clearCategoryForm();
+      await fetchCategories();
+      await fetchAllConceptData(); // To update node colors
+    }
+  }
+
+  async function deleteCategory(id) {
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: "Se eliminará la categoría y se desasignará de todos los conceptos.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      confirmButtonText: "Sí, ¡elimínala!",
+    });
+
+    if (result.isConfirmed) {
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) {
+        Swal.fire("Error", "No se pudo eliminar la categoría.", "error");
+      } else {
+        Swal.fire("Eliminada", "La categoría ha sido eliminada.", "success");
+        await fetchCategories();
+        await fetchAllConceptData(); // To update node colors
+      }
+    }
+  }
+
+  function clearCategoryForm() {
+    categoryForm.reset();
+    categoryIdInput.value = "";
+    categoryColorInput.value = "#cccccc";
+  }
+
+  categoryForm.addEventListener("submit", saveCategory);
+  clearCategoryFormBtn.addEventListener("click", clearCategoryForm);
+
+  categoryList.addEventListener("click", (e) => {
+    const target = e.target;
+    const id = target.dataset.id;
+    if (target.classList.contains("delete-category-btn")) {
+      deleteCategory(id);
+    } else if (target.classList.contains("edit-category-btn")) {
+      const category = state.categories.find((c) => c.id === id);
+      if (category) editCategory(category);
+    } else if (target.closest("li")) {
+        const li = target.closest("li");
+        const category = state.categories.find((c) => c.id === li.dataset.id);
+        if (category) editCategory(category);
+    }
   });
 
   function generateThesaurusSummary() {
@@ -916,7 +1056,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const { data: concepts, error: conceptsError } = await supabase
         .from("concepts")
-        .select("id, created_at")
+        .select("id, created_at, category_id")
         .eq("thesaurus_id", state.activeThesaurusId);
       if (conceptsError) throw conceptsError;
 
@@ -1201,12 +1341,12 @@ document.addEventListener("DOMContentLoaded", () => {
           .on("start", dragstarted)
           .on("drag", dragged)
           .on("end", dragended)
-      );
+      )
+      .on("contextmenu", showContextMenu);
 
     nodeEnter
       .append("circle")
       .attr("r", 10)
-      .attr("fill", "#2c5282")
       .on("click", (event, d) => {
         if (event.shiftKey) {
           showConceptModal(d.fullConcept);
@@ -1221,6 +1361,12 @@ document.addEventListener("DOMContentLoaded", () => {
     nodeEnter.append("text").attr("dy", -12);
 
     node = nodeEnter.merge(node);
+    node.select("circle").attr("fill", (d) => {
+      const category = state.categories.find(
+        (cat) => cat.id === d.fullConcept.category_id
+      );
+      return category ? category.color : "#2c5282";
+    });
     node.select("text").text((d) => d.name);
 
     simulation.alpha(1).restart();
@@ -1241,6 +1387,62 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!event.active) simulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
+  }
+
+  function showContextMenu(event, d) {
+    event.preventDefault();
+
+    // Remove any existing context menus
+    d3.select(".context-menu").remove();
+
+    const menu = d3.select("body").append("div")
+        .attr("class", "context-menu")
+        .style("left", `${event.pageX}px`)
+        .style("top", `${event.pageY}px`);
+
+    const list = menu.append("ul");
+
+    list.selectAll("li")
+        .data(state.categories)
+        .enter()
+        .append("li")
+        .html(cat => `<span class="category-color-dot" style="background-color: ${cat.color};"></span>${cat.name}`)
+        .on("click", (e, cat) => {
+            setNodeCategory(d.fullConcept.id, cat.id);
+            menu.remove();
+        });
+    
+    list.append("li")
+        .text("Sin categoría")
+        .on("click", () => {
+            setNodeCategory(d.fullConcept.id, null);
+            menu.remove();
+        });
+
+    // Close menu on outside click
+    d3.select("body").on("click.context-menu", () => {
+        menu.remove();
+        d3.select("body").on("click.context-menu", null);
+    });
+  }
+
+  async function setNodeCategory(conceptId, categoryId) {
+    const { error } = await supabase
+        .from("concepts")
+        .update({ category_id: categoryId })
+        .eq("id", conceptId);
+
+    if (error) {
+        console.error("Error updating concept category:", error);
+        Swal.fire("Error", "No se pudo actualizar la categoría del concepto.", "error");
+    } else {
+        // Update local state
+        const concept = state.concepts.find(c => c.id === conceptId);
+        if (concept) {
+            concept.category_id = categoryId;
+        }
+        updateGraph();
+    }
   }
 
   function showTooltip(event, d) {

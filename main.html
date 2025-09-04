@@ -67,6 +67,36 @@
                 </form>
             </section>
 
+            <!-- SECCIÓN DE EDITOR DE CATEGORÍAS -->
+            <section class="control-section">
+                <h2 class="collapsible-header">Editor de Categorías <span class="toggle-collapse">-</span></h2>
+                <div id="category-editor" class="collapsible-content">
+                    <form id="category-form">
+                        <input type="hidden" id="category-id">
+                        <label for="category-name">Nombre:</label>
+                        <input type="text" id="category-name" placeholder="Nombre de la categoría" required>
+                        
+                        <label for="category-description">Descripción:</label>
+                        <textarea id="category-description" rows="2" placeholder="Descripción..."></textarea>
+                        
+                        <label for="category-notes">Notas:</label>
+                        <textarea id="category-notes" rows="2" placeholder="Notas adicionales..."></textarea>
+                        
+                        <label for="category-color">Color:</label>
+                        <input type="color" id="category-color" value="#cccccc">
+                        
+                        <div class="button-group">
+                            <button type="submit">Guardar Categoría</button>
+                            <button type="button" id="clear-category-form-btn">Limpiar</button>
+                        </div>
+                    </form>
+                    <div id="category-list-container">
+                        <h3>Categorías Existentes</h3>
+                        <ul id="category-list"></ul>
+                    </div>
+                </div>
+            </section>
+
             <!-- SECCIÓN DE BÚSQUEDA -->
             <section class="control-section">
                 <h2>Buscar Concepto</h2>
