@@ -548,3 +548,36 @@ button.danger:hover {
   border-radius: 0.375rem;
   border: 1px solid var(--border-color);
 }
+
+.custom-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.color-swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.custom-color-input {
+  width: 100px;
+  height: 40px;
+  padding: 0;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border-color);
+}

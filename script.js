@@ -75,7 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const categoryNameInput = document.getElementById("category-name");
   const categoryDescriptionInput = document.getElementById("category-description");
   const categoryNotesInput = document.getElementById("category-notes");
-  const categoryColorInput = document.getElementById("category-color");
   const clearCategoryFormBtn = document.getElementById("clear-category-form-btn");
   const categoryList = document.getElementById("category-list");
 
@@ -341,6 +340,21 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- 5.1. FUNCIONES DE GESTIÓN DE CATEGORÍAS ---
+  function createColorPicker(colors, defaultColor = '#cccccc') {
+    const swatches = colors.map(color => 
+      `<button type="button" class="color-swatch" style="background-color: ${color};" data-color="${color}"></button>`
+    ).join('');
+
+    return `
+      <div class="custom-color-picker">
+        <div class="color-swatches">
+          ${swatches}
+        </div>
+        <input type="color" class="custom-color-input" value="${defaultColor}">
+      </div>
+    `;
+  }
+
   async function fetchCategories() {
     if (!state.activeThesaurusId) {
       state.categories = [];
@@ -366,7 +380,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .map(
         (cat) => `
       <li data-id="${cat.id}">
-        <span class="category-color-dot" style="background-color: ${cat.color};"></span >
+        <span class="category-color-dot" style="background-color: ${cat.color};"></span>
         <span class="category-name">${cat.name}</span>
         <div class="category-actions">
           <button class="edit-category-btn" data-id="${cat.id}">✏️</button>
@@ -383,7 +397,19 @@ document.addEventListener("DOMContentLoaded", () => {
     categoryNameInput.value = category.name;
     categoryDescriptionInput.value = category.description || "";
     categoryNotesInput.value = category.notes || "";
-    categoryColorInput.value = category.color || "#cccccc";
+    
+    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#cddc39', '#ffeb3b', '#ff9800', '#795548'];
+    const colorPickerContainer = document.getElementById('category-color-picker');
+    colorPickerContainer.innerHTML = createColorPicker(colors, category.color || '#cccccc');
+    
+    const colorPicker = colorPickerContainer.querySelector('.custom-color-picker');
+    const customColorInput = colorPicker.querySelector('.custom-color-input');
+    
+    colorPicker.addEventListener('click', (e) => {
+      if (e.target.classList.contains('color-swatch')) {
+        customColorInput.value = e.target.dataset.color;
+      }
+    });
   }
 
   async function saveCategory(e) {
@@ -394,7 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
       name: categoryNameInput.value.trim(),
       description: categoryDescriptionInput.value.trim(),
       notes: categoryNotesInput.value.trim(),
-      color: categoryColorInput.value,
+      color: document.querySelector('#category-color-picker .custom-color-input').value,
     };
 
     if (!categoryData.name) {
@@ -447,7 +473,19 @@ document.addEventListener("DOMContentLoaded", () => {
   function clearCategoryForm() {
     categoryForm.reset();
     categoryIdInput.value = "";
-    categoryColorInput.value = "#cccccc";
+    
+    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#cddc39', '#ffeb3b', '#ff9800', '#795548'];
+    const colorPickerContainer = document.getElementById('category-color-picker');
+    colorPickerContainer.innerHTML = createColorPicker(colors, '#cccccc');
+
+    const colorPicker = colorPickerContainer.querySelector('.custom-color-picker');
+    const customColorInput = colorPicker.querySelector('.custom-color-input');
+    
+    colorPicker.addEventListener('click', (e) => {
+      if (e.target.classList.contains('color-swatch')) {
+        customColorInput.value = e.target.dataset.color;
+      }
+    });
   }
 
   categoryForm.addEventListener("submit", saveCategory);
@@ -1421,7 +1459,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .data(state.categories)
         .enter()
         .append("li")
-        .html(cat => `<span class="category-color-dot" style="background-color: ${cat.color};"></span >${cat.name}`)
+        .html(cat => `<span class="category-color-dot" style="background-color: ${cat.color};"></span>${cat.name}`)
         .on("click", (e, cat) => {
             setNodeCategory(d.fullConcept.id, cat.id);
             menu.remove();
@@ -1865,6 +1903,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- 11. INICIALIZACIÓN ---
   async function initialize() {
     await fetchUserThesauruses();
+    clearCategoryForm();
   }
 
   checkUserSession();
