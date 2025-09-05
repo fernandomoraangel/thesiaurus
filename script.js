@@ -1508,6 +1508,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function promptNewCategory(conceptId) {
+    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#cddc39', '#ffeb3b', '#ff9800', '#795548'];
     const { value: formValues } = await Swal.fire({
       title: 'Crear Nueva Categoría',
       customClass: {
@@ -1524,18 +1525,31 @@ document.addEventListener("DOMContentLoaded", () => {
             <textarea id="swal-input2" class="swal2-textarea" placeholder="Descripción..."></textarea>
           </div>
           <div class="form-group form-group-color">
-            <label for="swal-input3">Color</label>
-            <input id="swal-input3" type="color" value="#cccccc">
+            <label>Color</label>
+            <div id="swal-color-picker"></div>
           </div>
         </div>
       `,
+      didOpen: () => {
+        const colorPickerContainer = document.getElementById('swal-color-picker');
+        colorPickerContainer.innerHTML = createColorPicker(colors, '#cccccc');
+        
+        const colorPicker = colorPickerContainer.querySelector('.custom-color-picker');
+        const customColorInput = colorPicker.querySelector('.custom-color-input');
+        
+        colorPicker.addEventListener('click', (e) => {
+          if (e.target.classList.contains('color-swatch')) {
+            customColorInput.value = e.target.dataset.color;
+          }
+        });
+      },
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
         return [
           document.getElementById('swal-input1').value,
           document.getElementById('swal-input2').value,
-          document.getElementById('swal-input3').value
+          document.querySelector('#swal-color-picker .custom-color-input').value
         ]
       }
     });
