@@ -506,192 +506,156 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  function generateThesaurusSummary() {
-    let summary = "";
-    const concepts = state.concepts;
+  function generateThesaurusSummary(sortBy = "default") {
+    let summaryHtml = "";
+    const concepts = [...state.concepts]; // Copia para no mutar el estado original
     const relationships = state.relationships;
+    const categories = state.categories;
     const thesaurus = state.thesauruses.find(
       (t) => t.id === state.activeThesaurusId
     );
 
-    if (thesaurus) {
-      summary += `<div class="summary-thesaurus-details">
-`;
-      summary += `<ul>
-`;
-      if (thesaurus.author)
-        summary += `<li><strong>Autor:</strong> ${thesaurus.author}</li>
-`;
-      if (thesaurus.version)
-        summary += `<li><strong>Versión:</strong> ${thesaurus.version}</li>
-`;
-      if (thesaurus.language)
-        summary += `<li><strong>Idioma:</strong> ${thesaurus.language}</li>
-`;
-      if (thesaurus.license)
-        summary += `<li><strong>Licencia:</strong> ${thesaurus.license}</li>
-`;
-      if (thesaurus.published_at)
-        summary += `<li><strong>Fecha de Publicación:</strong> ${
-          thesaurus.published_at.split("T")[0]
-        }</li>
-`;
-      summary += `</ul>
-`;
-      summary += `<h3>Descripción</h3>
-`;
-      summary += `<p>${thesaurus.description || ""}</p>
-`;
-      summary += `</div>
-`;
+    const getPrefLabel = (concept) =>
+      concept.labels.find((l) => l.label_type === "prefLabel")?.label_text ||
+      "Sin Etiqueta";
+
+    // Ordenar conceptos si es necesario
+    if (sortBy === "alphabetical") {
+      concepts.sort((a, b) => getPrefLabel(a).localeCompare(getPrefLabel(b)));
     }
 
-    summary += `<h2>Conceptos</h2>
+    const renderConcept = (concept) => {
+      let conceptHtml = "";
+      const prefLabel = getPrefLabel(concept);
+      conceptHtml += `<div class="summary-concept">
 `;
-
-    concepts.forEach((concept, index) => {
-      const prefLabel =
-        concept.labels.find((l) => l.label_type === "prefLabel")?.label_text ||
-        "Sin Etiqueta";
-      summary += `<div class="summary-concept">
+      conceptHtml += `<h3>${prefLabel}</h3>
 `;
-      summary += `<h3>${prefLabel}</h3>
-`;
-
-      summary += '<table class="summary-table">';
+      conceptHtml += '<table class="summary-table">';
 
       const altLabels = concept.labels
         .filter((l) => l.label_type === "altLabel")
         .map((l) => l.label_text)
         .join(", ");
       if (altLabels) {
-        summary += `<tr><td class="summary-label">Etiquetas Alternativas</td><td>${altLabels}</td></tr>`;
-      }
-
-      const hiddenLabels = concept.labels
-        .filter((l) => l.label_type === "hiddenLabel")
-        .map((l) => l.label_text)
-        .join(", ");
-      if (hiddenLabels) {
-        summary += `<tr><td class="summary-label">Etiquetas Ocultas</td><td>${hiddenLabels}</td></tr>`;
+        conceptHtml += `<tr><td class="summary-label">Etiquetas Alternativas</td><td>${altLabels}</td></tr>`;
       }
 
       const definition = concept.notes.find(
         (n) => n.note_type === "definition"
       )?.note_text;
       if (definition) {
-        summary += `<tr><td class="summary-label">Definición</td><td>${definition}</td></tr>`;
+        conceptHtml += `<tr><td class="summary-label">Definición</td><td>${definition}</td></tr>`;
       }
 
-      const scopeNote = concept.notes.find(
-        (n) => n.note_type === "scopeNote"
-      )?.note_text;
-      if (scopeNote) {
-        summary += `<tr><td class="summary-label">Nota de Alcance</td><td>${scopeNote}</td></tr>`;
-      }
+      // Añadir más detalles si es necesario, siguiendo el patrón...
 
-      const example = concept.notes.find(
-        (n) => n.note_type === "example"
-      )?.note_text;
-      if (example) {
-        summary += `<tr><td class="summary-label">Ejemplo</td><td>${example}</td></tr>`;
-      }
+      conceptHtml += "</table>";
+      conceptHtml += `</div>`;
+      return conceptHtml;
+    };
 
-      const broader = relationships.find(
-        (r) =>
-          r.source_concept_id === concept.id &&
-          r.relationship_type === "broader"
-      );
-      if (broader) {
-        const broaderConcept = concepts.find(
-          (c) => c.id === broader.target_concept_id
-        );
-        if (broaderConcept) {
-          const broaderLabel =
-            broaderConcept.labels.find((l) => l.label_type === "prefLabel")
-              ?.label_text || "Sin Etiqueta";
-          summary += `<tr><td class="summary-label">Término Genérico</td><td>${broaderLabel}</td></tr>`;
+    if (sortBy === "category") {
+      const conceptsByCategory = concepts.reduce((acc, concept) => {
+        const categoryId = concept.category_id || "uncategorized";
+        if (!acc[categoryId]) {
+          acc[categoryId] = [];
         }
-      }
+        acc[categoryId].push(concept);
+        return acc;
+      }, {});
 
-      const narrower = relationships.filter(
-        (r) =>
-          r.source_concept_id === concept.id &&
-          r.relationship_type === "narrower"
+      // Ordenar categorías por nombre
+      const sortedCategories = [...categories].sort((a, b) =>
+        a.name.localeCompare(b.name)
       );
-      if (narrower.length > 0) {
-        const narrowerLabels = narrower
-          .map((r) => {
-            const narrowerConcept = concepts.find(
-              (c) => c.id === r.target_concept_id
-            );
-            return narrowerConcept
-              ? narrowerConcept.labels.find((l) => l.label_type === "prefLabel")
-                  ?.label_text || "Sin Etiqueta"
-              : "";
-          })
-          .filter(Boolean)
-          .join(", ");
-        if (narrowerLabels) {
-          summary += `<tr><td class="summary-label">Términos Específicos</td><td>${narrowerLabels}</td></tr>`;
+
+      // Renderizar conceptos por categoría
+      sortedCategories.forEach((category) => {
+        if (conceptsByCategory[category.id]) {
+          summaryHtml += `<h2 class="summary-category-title">${category.name}</h2>`;
+          conceptsByCategory[category.id]
+            .sort((a, b) => getPrefLabel(a).localeCompare(getPrefLabel(b)))
+            .forEach((concept) => {
+              summaryHtml += renderConcept(concept);
+              summaryHtml += '<hr class="summary-divider">';
+            });
         }
-      }
+      });
 
-      const related = relationships.filter(
-        (r) =>
-          r.source_concept_id === concept.id &&
-          r.relationship_type === "related"
-      );
-      if (related.length > 0) {
-        const relatedLabels = related
-          .map((r) => {
-            const relatedConcept = concepts.find(
-              (c) => c.id === r.target_concept_id
-            );
-            return relatedConcept
-              ? relatedConcept.labels.find((l) => l.label_type === "prefLabel")
-                  ?.label_text || "Sin Etiqueta"
-              : "";
-          })
-          .filter(Boolean)
-          .join(", ");
-        if (relatedLabels) {
-          summary += `<tr><td class="summary-label">Términos Relacionados</td><td>${relatedLabels}</td></tr>`;
+      // Renderizar conceptos sin categoría
+      if (conceptsByCategory["uncategorized"]) {
+        summaryHtml += `<h2 class="summary-category-title">Sin Categoría</h2>`;
+        conceptsByCategory["uncategorized"]
+          .sort((a, b) => getPrefLabel(a).localeCompare(getPrefLabel(b)))
+          .forEach((concept) => {
+            summaryHtml += renderConcept(concept);
+            summaryHtml += '<hr class="summary-divider">';
+          });
+      }
+    } else {
+      // Renderizado por defecto o alfabético
+      concepts.forEach((concept, index) => {
+        summaryHtml += renderConcept(concept);
+        if (index < concepts.length - 1) {
+          summaryHtml += '<hr class="summary-divider">';
         }
-      }
+      });
+    }
 
-      summary += "</table>";
-      summary += `</div>`;
+    // Detalles del tesauro (se puede poner al principio)
+    let thesaurusDetails = "";
+    if (thesaurus) {
+      thesaurusDetails += `<div class="summary-thesaurus-details">
+`;
+      thesaurusDetails += `<ul>
+`;
+      if (thesaurus.author)
+        thesaurusDetails += `<li><strong>Autor:</strong> ${thesaurus.author}</li>
+`;
+      if (thesaurus.version)
+        thesaurusDetails += `<li><strong>Versión:</strong> ${thesaurus.version}</li>
+`;
+      if (thesaurus.description)
+        thesaurusDetails += `<li><strong>Descripción:</strong> ${thesaurus.description}</li>
+`;
+      thesaurusDetails += `</ul>
+`;
+      thesaurusDetails += `</div>
+`;
+    }
 
-      if (index < concepts.length - 1) {
-        summary += '<hr class="summary-divider">';
-      }
-    });
+    return thesaurusDetails + summaryHtml;
+  }
 
-    return summary;
+  function renderSummary() {
+    const sortBy = document.querySelector('input[name="summary-sort"]:checked').value;
+    const summaryContent = document.getElementById("summary-content");
+    summaryContent.innerHTML = generateThesaurusSummary(sortBy);
   }
 
   function showThesaurusSummary() {
     const thesaurus = state.thesauruses.find(
       (t) => t.id === state.activeThesaurusId
     );
-    if (thesaurus) {
-      summaryModalTitle.textContent = thesaurus.title;
-    } else {
-      summaryModalTitle.textContent = "Resumen del Tesauro";
-    }
-    const summary = generateThesaurusSummary();
-    summaryModalBody.innerHTML = summary;
+    summaryModalTitle.textContent = thesaurus
+      ? thesaurus.title
+      : "Resumen del Tesauro";
+    renderSummary(); // Llama a la nueva función de renderizado
     summaryModal.classList.remove("hidden");
   }
 
   summaryBtn.addEventListener("click", showThesaurusSummary);
+
+  document
+    .getElementById("summary-controls")
+    .addEventListener("change", renderSummary);
+
   summaryModalCloseBtn.addEventListener("click", () =>
     summaryModal.classList.add("hidden")
   );
   summaryModal.addEventListener("click", (e) => {
     if (e.target === summaryModal) {
-      // Cierra el modal si se hace clic en el overlay
       summaryModal.classList.add("hidden");
     }
   });

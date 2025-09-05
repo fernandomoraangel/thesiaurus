@@ -194,7 +194,25 @@
                 <button id="summary-modal-close-btn" class="modal-close">&times;</button>
             </div>
             <div id="summary-modal-body">
-                <!-- El contenido se inyectará aquí -->
+                <div id="summary-controls">
+                    <label>Ordenar por:</label>
+                    <label>
+                        <input type="radio" name="summary-sort" value="default" checked>
+                        Original
+                    </label>
+                    <label>
+                        <input type="radio" name="summary-sort" value="alphabetical">
+                        Alfabético
+                    </label>
+                    <label>
+                        <input type="radio" name="summary-sort" value="category">
+                        Categoría
+                    </label>
+                </div>
+                <hr>
+                <div id="summary-content">
+                    <!-- El contenido se inyectará aquí -->
+                </div>
             </div>
         </div>
     </div>
