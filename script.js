@@ -73,9 +73,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const categoryForm = document.getElementById("category-form");
   const categoryIdInput = document.getElementById("category-id");
   const categoryNameInput = document.getElementById("category-name");
-  const categoryDescriptionInput = document.getElementById("category-description");
+  const categoryDescriptionInput = document.getElementById(
+    "category-description"
+  );
   const categoryNotesInput = document.getElementById("category-notes");
-  const clearCategoryFormBtn = document.getElementById("clear-category-form-btn");
+  const clearCategoryFormBtn = document.getElementById(
+    "clear-category-form-btn"
+  );
   const categoryList = document.getElementById("category-list");
 
   // --- 3. ESTADO DE LA APLICACIÓN Y CONFIGURACIÓN DE D3 ---
@@ -340,10 +344,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- 5.1. FUNCIONES DE GESTIÓN DE CATEGORÍAS ---
-  function createColorPicker(colors, defaultColor = '#cccccc') {
-    const swatches = colors.map(color => 
-      `<button type="button" class="color-swatch" style="background-color: ${color};" data-color="${color}"></button>`
-    ).join('');
+  function createColorPicker(colors, defaultColor = "#cccccc") {
+    const swatches = colors
+      .map(
+        (color) =>
+          `<button type="button" class="color-swatch" style="background-color: ${color};" data-color="${color}"></button>`
+      )
+      .join("");
 
     return `
       <div class="custom-color-picker">
@@ -397,16 +404,36 @@ document.addEventListener("DOMContentLoaded", () => {
     categoryNameInput.value = category.name;
     categoryDescriptionInput.value = category.description || "";
     categoryNotesInput.value = category.notes || "";
-    
-    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#cddc39', '#ffeb3b', '#ff9800', '#795548'];
-    const colorPickerContainer = document.getElementById('category-color-picker');
-    colorPickerContainer.innerHTML = createColorPicker(colors, category.color || '#cccccc');
-    
-    const colorPicker = colorPickerContainer.querySelector('.custom-color-picker');
-    const customColorInput = colorPicker.querySelector('.custom-color-input');
-    
-    colorPicker.addEventListener('click', (e) => {
-      if (e.target.classList.contains('color-swatch')) {
+
+    const colors = [
+      "#f44336",
+      "#e91e63",
+      "#9c27b0",
+      "#673ab7",
+      "#3f51b5",
+      "#2196f3",
+      "#009688",
+      "#4caf50",
+      "#cddc39",
+      "#ffeb3b",
+      "#ff9800",
+      "#795548",
+    ];
+    const colorPickerContainer = document.getElementById(
+      "category-color-picker"
+    );
+    colorPickerContainer.innerHTML = createColorPicker(
+      colors,
+      category.color || "#cccccc"
+    );
+
+    const colorPicker = colorPickerContainer.querySelector(
+      ".custom-color-picker"
+    );
+    const customColorInput = colorPicker.querySelector(".custom-color-input");
+
+    colorPicker.addEventListener("click", (e) => {
+      if (e.target.classList.contains("color-swatch")) {
         customColorInput.value = e.target.dataset.color;
       }
     });
@@ -420,7 +447,9 @@ document.addEventListener("DOMContentLoaded", () => {
       name: categoryNameInput.value.trim(),
       description: categoryDescriptionInput.value.trim(),
       notes: categoryNotesInput.value.trim(),
-      color: document.querySelector('#category-color-picker .custom-color-input').value,
+      color: document.querySelector(
+        "#category-color-picker .custom-color-input"
+      ).value,
     };
 
     if (!categoryData.name) {
@@ -473,16 +502,33 @@ document.addEventListener("DOMContentLoaded", () => {
   function clearCategoryForm() {
     categoryForm.reset();
     categoryIdInput.value = "";
-    
-    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#cddc39', '#ffeb3b', '#ff9800', '#795548'];
-    const colorPickerContainer = document.getElementById('category-color-picker');
-    colorPickerContainer.innerHTML = createColorPicker(colors, '#cccccc');
 
-    const colorPicker = colorPickerContainer.querySelector('.custom-color-picker');
-    const customColorInput = colorPicker.querySelector('.custom-color-input');
-    
-    colorPicker.addEventListener('click', (e) => {
-      if (e.target.classList.contains('color-swatch')) {
+    const colors = [
+      "#f44336",
+      "#e91e63",
+      "#9c27b0",
+      "#673ab7",
+      "#3f51b5",
+      "#2196f3",
+      "#009688",
+      "#4caf50",
+      "#cddc39",
+      "#ffeb3b",
+      "#ff9800",
+      "#795548",
+    ];
+    const colorPickerContainer = document.getElementById(
+      "category-color-picker"
+    );
+    colorPickerContainer.innerHTML = createColorPicker(colors, "#cccccc");
+
+    const colorPicker = colorPickerContainer.querySelector(
+      ".custom-color-picker"
+    );
+    const customColorInput = colorPicker.querySelector(".custom-color-input");
+
+    colorPicker.addEventListener("click", (e) => {
+      if (e.target.classList.contains("color-swatch")) {
         customColorInput.value = e.target.dataset.color;
       }
     });
@@ -500,9 +546,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const category = state.categories.find((c) => c.id === id);
       if (category) editCategory(category);
     } else if (target.closest("li")) {
-        const li = target.closest("li");
-        const category = state.categories.find((c) => c.id === li.dataset.id);
-        if (category) editCategory(category);
+      const li = target.closest("li");
+      const category = state.categories.find((c) => c.id === li.dataset.id);
+      if (category) editCategory(category);
     }
   });
 
@@ -629,7 +675,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderSummary() {
-    const sortBy = document.querySelector('input[name="summary-sort"]:checked').value;
+    const sortBy = document.querySelector(
+      'input[name="summary-sort"]:checked'
+    ).value;
     const summaryContent = document.getElementById("summary-content");
     summaryContent.innerHTML = generateThesaurusSummary(sortBy);
   }
@@ -1412,71 +1460,96 @@ document.addEventListener("DOMContentLoaded", () => {
     // Remove any existing context menus
     d3.select(".context-menu").remove();
 
-    const menu = d3.select("body").append("div")
-        .attr("class", "context-menu")
-        .style("left", `${event.pageX}px`)
-        .style("top", `${event.pageY}px`);
+    const menu = d3
+      .select("body")
+      .append("div")
+      .attr("class", "context-menu")
+      .style("left", `${event.pageX}px`)
+      .style("top", `${event.pageY}px`);
 
     const list = menu.append("ul");
 
-    list.selectAll("li")
-        .data(state.categories)
-        .enter()
-        .append("li")
-        .html(cat => `<span class="category-color-dot" style="background-color: ${cat.color};"></span>${cat.name}`)
-        .on("click", (e, cat) => {
-            setNodeCategory(d.fullConcept.id, cat.id);
-            menu.remove();
-        });
-    
-    list.append("li")
-        .text("Sin categoría")
-        .on("click", () => {
-            setNodeCategory(d.fullConcept.id, null);
-            menu.remove();
-        });
+    list
+      .selectAll("li")
+      .data(state.categories)
+      .enter()
+      .append("li")
+      .html(
+        (cat) =>
+          `<span class="category-color-dot" style="background-color: ${cat.color};"></span>${cat.name}`
+      )
+      .on("click", (e, cat) => {
+        setNodeCategory(d.fullConcept.id, cat.id);
+        menu.remove();
+      });
+
+    list
+      .append("li")
+      .text("Sin categoría")
+      .on("click", () => {
+        setNodeCategory(d.fullConcept.id, null);
+        menu.remove();
+      });
 
     list.append("hr");
 
-    list.append("li")
-        .text("Nueva categoría...")
-        .on("click", () => {
-            menu.remove();
-            promptNewCategory(d.fullConcept.id);
-        });
+    list
+      .append("li")
+      .text("Nueva categoría...")
+      .on("click", () => {
+        menu.remove();
+        promptNewCategory(d.fullConcept.id);
+      });
 
     // Close menu on outside click
     d3.select("body").on("click.context-menu", () => {
-        menu.remove();
-        d3.select("body").on("click.context-menu", null);
+      menu.remove();
+      d3.select("body").on("click.context-menu", null);
     });
   }
 
   async function setNodeCategory(conceptId, categoryId) {
     const { error } = await supabase
-        .from("concepts")
-        .update({ category_id: categoryId })
-        .eq("id", conceptId);
+      .from("concepts")
+      .update({ category_id: categoryId })
+      .eq("id", conceptId);
 
     if (error) {
-        console.error("Error updating concept category:", error);
-        Swal.fire("Error", "No se pudo actualizar la categoría del concepto.", "error");
+      console.error("Error updating concept category:", error);
+      Swal.fire(
+        "Error",
+        "No se pudo actualizar la categoría del concepto.",
+        "error"
+      );
     } else {
-        // Update local state
-        const concept = state.concepts.find(c => c.id === conceptId);
-        if (concept) {
-            concept.category_id = categoryId;
-        }
-        updateGraph();
+      // Update local state
+      const concept = state.concepts.find((c) => c.id === conceptId);
+      if (concept) {
+        concept.category_id = categoryId;
+      }
+      updateGraph();
     }
   }
 
   async function promptNewCategory(conceptId) {
-    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#cddc39', '#ffeb3b', '#ff9800', '#795548'];
+    const colors = [
+      "#f44336",
+      "#e91e63",
+      "#9c27b0",
+      "#673ab7",
+      "#3f51b5",
+      "#2196f3",
+      "#009688",
+      "#4caf50",
+      "#cddc39",
+      "#ffeb3b",
+      "#ff9800",
+      "#795548",
+    ];
     const { value: formValues } = await Swal.fire({
-      title: 'Crear Nueva Categoría',
+      title: "Crear Nueva Categoría",
       customClass: {
-        popup: 'new-category-alert'
+        popup: "new-category-alert",
       },
       html: `
         <div class="new-category-form">
@@ -1495,14 +1568,19 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `,
       didOpen: () => {
-        const colorPickerContainer = document.getElementById('swal-color-picker');
-        colorPickerContainer.innerHTML = createColorPicker(colors, '#cccccc');
-        
-        const colorPicker = colorPickerContainer.querySelector('.custom-color-picker');
-        const customColorInput = colorPicker.querySelector('.custom-color-input');
-        
-        colorPicker.addEventListener('click', (e) => {
-          if (e.target.classList.contains('color-swatch')) {
+        const colorPickerContainer =
+          document.getElementById("swal-color-picker");
+        colorPickerContainer.innerHTML = createColorPicker(colors, "#cccccc");
+
+        const colorPicker = colorPickerContainer.querySelector(
+          ".custom-color-picker"
+        );
+        const customColorInput = colorPicker.querySelector(
+          ".custom-color-input"
+        );
+
+        colorPicker.addEventListener("click", (e) => {
+          if (e.target.classList.contains("color-swatch")) {
             customColorInput.value = e.target.dataset.color;
           }
         });
@@ -1511,35 +1589,40 @@ document.addEventListener("DOMContentLoaded", () => {
       showCancelButton: true,
       preConfirm: () => {
         return [
-          document.getElementById('swal-input1').value,
-          document.getElementById('swal-input2').value,
-          document.querySelector('#swal-color-picker .custom-color-input').value
-        ]
-      }
+          document.getElementById("swal-input1").value,
+          document.getElementById("swal-input2").value,
+          document.querySelector("#swal-color-picker .custom-color-input")
+            .value,
+        ];
+      },
     });
 
     if (formValues) {
       const [name, description, color] = formValues;
 
       if (!name) {
-        Swal.fire('Error', 'El nombre de la categoría es obligatorio.', 'error');
+        Swal.fire(
+          "Error",
+          "El nombre de la categoría es obligatorio.",
+          "error"
+        );
         return;
       }
 
       const { data: newCategory, error } = await supabase
-        .from('categories')
+        .from("categories")
         .insert({
           thesaurus_id: state.activeThesaurusId,
           name,
           description,
-          color
+          color,
         })
         .select()
         .single();
 
       if (error) {
         console.error("Error creating new category:", error);
-        Swal.fire('Error', 'No se pudo crear la nueva categoría.', 'error');
+        Swal.fire("Error", "No se pudo crear la nueva categoría.", "error");
         return;
       }
 
@@ -1549,8 +1632,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Assign the new category to the concept
       await setNodeCategory(conceptId, newCategory.id);
-      
-      Swal.fire('Éxito', `Categoría "${name}" creada y asignada.`, 'success');
+
+      Swal.fire("Éxito", `Categoría "${name}" creada y asignada.`, "success");
     }
   }
 
@@ -1811,7 +1894,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const result = await Swal.fire({
           title: "¿Estás seguro?",
-          text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`, 
+          text: `Vas a importar ${data.concepts.length} conceptos y ${data.relationships.length} relaciones. Esto puede crear duplicados si ya existen.`,
           icon: "warning",
           showCancelButton: true,
           confirmButtonText: "Sí, ¡importar!",
@@ -1821,12 +1904,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
         loader.classList.remove("hidden");
 
+        const colors = [
+          "#f44336",
+          "#e91e63",
+          "#9c27b0",
+          "#673ab7",
+          "#3f51b5",
+          "#2196f3",
+          "#009688",
+          "#4caf50",
+          "#cddc39",
+          "#ffeb3b",
+          "#ff9800",
+          "#795548",
+        ];
+
+        const categories = data.concepts.filter((c) => !c.category_id);
+        const normalConcepts = data.concepts.filter((c) => c.category_id);
+
         const conceptIdMap = new Map();
-        for (const concept of data.concepts) {
-          const oldId = concept.id;
-          const { data: newConcept, error } = await supabase
+        const categoryIdMap = new Map();
+
+        // Procesar categorías primero
+        for (const cat of categories) {
+          const oldId = cat.id;
+          const { data: newConcept, error: conceptError } = await supabase
             .from("concepts")
             .insert({ thesaurus_id: state.activeThesaurusId })
+            .select("id")
+            .single();
+          if (conceptError) throw conceptError;
+          conceptIdMap.set(oldId, newConcept.id);
+
+          if (cat.labels) {
+            const labelsToInsert = cat.labels.map((l) => ({
+              label_type: l.label_type,
+              label_text: l.label_text,
+              concept_id: newConcept.id,
+            }));
+            await supabase.from("labels").insert(labelsToInsert);
+          }
+          if (cat.notes) {
+            const notesToInsert = cat.notes.map((n) => ({
+              note_type: n.note_type,
+              note_text: n.note_text,
+              concept_id: newConcept.id,
+            }));
+            await supabase.from("notes").insert(notesToInsert);
+          }
+
+          // Crear categoría
+          const prefLabel =
+            cat.labels.find((l) => l.label_type === "prefLabel")?.label_text ||
+            "Sin Nombre";
+          const randomColor = colors[Math.floor(Math.random() * colors.length)];
+          const { data: newCategory, error: categoryError } = await supabase
+            .from("categories")
+            .insert({
+              thesaurus_id: state.activeThesaurusId,
+              name: prefLabel,
+              description:
+                cat.notes.find((n) => n.note_type === "definition")
+                  ?.note_text || "",
+              color: randomColor,
+            })
+            .select("id")
+            .single();
+          if (categoryError) throw categoryError;
+          categoryIdMap.set(oldId, newCategory.id);
+        }
+
+        // Procesar conceptos normales
+        for (const concept of normalConcepts) {
+          const oldId = concept.id;
+          const categoryId = categoryIdMap.get(concept.category_id);
+          const { data: newConcept, error } = await supabase
+            .from("concepts")
+            .insert({
+              thesaurus_id: state.activeThesaurusId,
+              category_id: categoryId,
+            })
             .select("id")
             .single();
           if (error) throw error;
