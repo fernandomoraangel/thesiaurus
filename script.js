@@ -1891,6 +1891,59 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = JSON.parse(event.target.result);
         if (!data.concepts || !data.relationships)
           throw new Error("Formato de archivo inválido.");
+        // Elegir destino de importación
+        let importOptions = {};
+        if (state.activeThesaurusId) {
+          importOptions.current = "Importar en tesauro actual";
+        }
+        importOptions.new = "Crear nuevo tesauro";
+
+        const { value: choice } = await Swal.fire({
+          title: "Elegir destino de importación",
+          input: "select",
+          inputOptions: importOptions,
+          inputPlaceholder: "Selecciona una opción",
+          showCancelButton: true,
+          inputValidator: (value) => {
+            if (!value) {
+              return "Debes seleccionar una opción";
+            }
+          },
+        });
+
+        if (!choice) return; // Cancelado
+
+        let targetThesaurusId = state.activeThesaurusId;
+        if (choice === "new") {
+          const { value: newTitle } = await Swal.fire({
+            title: "Nombre del nuevo tesauro",
+            input: "text",
+            inputPlaceholder: "Ingresa el título del tesauro",
+            showCancelButton: true,
+            inputValidator: (value) => {
+              if (!value) {
+                return "El título es obligatorio";
+              }
+            },
+          });
+
+          if (!newTitle) return;
+
+          const { data: newThesaurus, error } = await supabase
+            .from("thesauruses")
+            .insert({ title: newTitle, user_id: state.user.id })
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          state.thesauruses.push(newThesaurus);
+          renderThesaurusSelector();
+          thesaurusSelect.value = newThesaurus.id;
+          state.activeThesaurusId = newThesaurus.id;
+          renderThesaurusDetails(newThesaurus);
+          targetThesaurusId = newThesaurus.id;
+        }
 
         const result = await Swal.fire({
           title: "¿Estás seguro?",
@@ -1930,7 +1983,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const oldId = cat.id;
           const { data: newConcept, error: conceptError } = await supabase
             .from("concepts")
-            .insert({ thesaurus_id: state.activeThesaurusId })
+            .insert({ thesaurus_id: targetThesaurusId })
             .select("id")
             .single();
           if (conceptError) throw conceptError;
@@ -1961,7 +2014,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const { data: newCategory, error: categoryError } = await supabase
             .from("categories")
             .insert({
-              thesaurus_id: state.activeThesaurusId,
+              thesaurus_id: targetThesaurusId,
               name: prefLabel,
               description:
                 cat.notes.find((n) => n.note_type === "definition")
@@ -1981,7 +2034,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const { data: newConcept, error } = await supabase
             .from("concepts")
             .insert({
-              thesaurus_id: state.activeThesaurusId,
+              thesaurus_id: targetThesaurusId,
               category_id: categoryId,
             })
             .select("id")
