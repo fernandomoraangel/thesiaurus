@@ -1677,7 +1677,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const prefLabel = c.labels.find(
           (l) => l.label_type === "prefLabel"
         )?.label_text;
-        return `<option value="${c.id}">${prefLabel || c.id}</option>`;
+        return `<option value="${c.id}">${
+          prefLabel || "Sin etiqueta"
+        }</option>`;
       })
       .join("");
 
@@ -1891,6 +1893,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = JSON.parse(event.target.result);
         if (!data.concepts || !data.relationships)
           throw new Error("Formato de archivo inválido.");
+
+        // Validar que todos los conceptos tengan prefLabel
+        for (const concept of data.concepts) {
+          const hasPrefLabel =
+            concept.labels &&
+            concept.labels.some((l) => l.label_type === "prefLabel");
+          if (!hasPrefLabel) {
+            throw new Error(
+              `El concepto con ID ${concept.id} no tiene una etiqueta preferida (prefLabel).`
+            );
+          }
+        }
         // Elegir destino de importación
         let importOptions = {};
         if (state.activeThesaurusId) {
