@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
+
 <body>
     <div id="app-container">
         <!-- PANEL DE CONTROL (IZQUIERDA) -->
@@ -75,16 +77,16 @@
                         <input type="hidden" id="category-id">
                         <label for="category-name">Nombre:</label>
                         <input type="text" id="category-name" placeholder="Nombre de la categoría" required>
-                        
+
                         <label for="category-description">Descripción:</label>
                         <textarea id="category-description" rows="2" placeholder="Descripción..."></textarea>
-                        
+
                         <label for="category-notes">Notas:</label>
                         <textarea id="category-notes" rows="2" placeholder="Notas adicionales..."></textarea>
-                        
+
                         <label for="category-color">Color:</label>
                         <div id="category-color-picker"></div>
-                        
+
                         <div class="button-group">
                             <button type="submit">Guardar Categoría</button>
                             <button type="button" id="clear-category-form-btn">Limpiar</button>
@@ -114,23 +116,27 @@
                         <legend>Etiquetas</legend>
                         <label for="pref-label">Etiqueta Preferida (prefLabel):</label>
                         <input type="text" id="pref-label" required placeholder="El descriptor principal...">
-                        
+
                         <label for="alt-labels">Etiquetas Alternativas (altLabel):</label>
-                        <textarea id="alt-labels" rows="3" placeholder="Sinónimos, variantes... (uno por línea)"></textarea>
-                        
+                        <textarea id="alt-labels" rows="3"
+                            placeholder="Sinónimos, variantes... (uno por línea)"></textarea>
+
                         <label for="hidden-labels">Etiquetas Ocultas (hiddenLabel):</label>
-                        <textarea id="hidden-labels" rows="2" placeholder="Errores ortográficos comunes... (uno por línea)"></textarea>
+                        <textarea id="hidden-labels" rows="2"
+                            placeholder="Errores ortográficos comunes... (uno por línea)"></textarea>
                     </fieldset>
 
                     <!-- Notas -->
                     <fieldset>
                         <legend>Notas de Documentación</legend>
                         <label for="definition">Definición (definition):</label>
-                        <textarea id="definition" rows="4" placeholder="Definición formal y precisa del concepto..."></textarea>
-                        
+                        <textarea id="definition" rows="4"
+                            placeholder="Definición formal y precisa del concepto..."></textarea>
+
                         <label for="scope-note">Nota de Alcance (scopeNote):</label>
-                        <textarea id="scope-note" rows="3" placeholder="Aclaraciones sobre el uso del concepto..."></textarea>
-                        
+                        <textarea id="scope-note" rows="3"
+                            placeholder="Aclaraciones sobre el uso del concepto..."></textarea>
+
                         <label for="example">Ejemplo (example):</label>
                         <textarea id="example" rows="2" placeholder="Ejemplo de uso del concepto..."></textarea>
                     </fieldset>
@@ -139,10 +145,26 @@
                     <fieldset>
                         <legend>Relaciones Semánticas</legend>
                         <label for="broader-concept">Término Genérico (broader):</label>
-                        <select id="broader-concept"><option value="">-- Ninguno --</option></select>
-                        
+                        <select id="broader-concept">
+                            <option value="">-- Ninguno --</option>
+                        </select>
+
                         <label for="related-concepts">Términos Relacionados (related):</label>
                         <select id="related-concepts" multiple></select>
+                    </fieldset>
+
+                    <!-- Historicidad -->
+                    <fieldset>
+                        <legend>Historicidad</legend>
+                        <label for="temporal-start">Inicio:</label>
+                        <input type="number" id="temporal-start" placeholder="Año de inicio (ej. 1990)">
+
+                        <label for="temporal-end">Fin:</label>
+                        <input type="number" id="temporal-end" placeholder="Año de fin (ej. 2020)">
+
+                        <label for="temporal-relevance">Relevancia:</label>
+                        <input type="number" id="temporal-relevance" step="0.1" min="0" max="1"
+                            placeholder="0.0 - 1.0 (ej. 0.8)">
                     </fieldset>
 
                     <div class="button-group">
@@ -217,7 +239,41 @@
         </div>
     </div>
 
+    <!-- MODAL PARA HISTORICIDAD DE RELACIONES -->
+    <div id="relationship-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="relationship-modal-title">Historicidad de la Relación</h3>
+                <button id="relationship-modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="relationship-modal-body">
+                <form id="relationship-historicity-form">
+                    <input type="hidden" id="relationship-id">
+
+                    <fieldset>
+                        <legend>Historicidad</legend>
+                        <label for="relationship-temporal-start">Inicio:</label>
+                        <input type="number" id="relationship-temporal-start" placeholder="Año de inicio (ej. 1990)">
+
+                        <label for="relationship-temporal-end">Fin:</label>
+                        <input type="number" id="relationship-temporal-end" placeholder="Año de fin (ej. 2020)">
+
+                        <label for="relationship-temporal-relevance">Relevancia:</label>
+                        <input type="number" id="relationship-temporal-relevance" step="0.1" min="0" max="1"
+                            placeholder="0.0 - 1.0 (ej. 0.8)">
+                    </fieldset>
+
+                    <div class="button-group">
+                        <button type="submit">Guardar</button>
+                        <button type="button" id="clear-relationship-btn">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->
     <script src="script.js"></script>
 </body>
+
 </html>

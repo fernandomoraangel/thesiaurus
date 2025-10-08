@@ -54,6 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveConceptBtn = document.getElementById("save-concept-btn");
   const deleteConceptBtn = document.getElementById("delete-concept-btn");
   const clearFormBtn = document.getElementById("clear-form-btn");
+  const temporalStartInput = document.getElementById("temporal-start");
+  const temporalEndInput = document.getElementById("temporal-end");
+  const temporalRelevanceInput = document.getElementById("temporal-relevance");
 
   // Elementos del Modal
   const conceptModal = document.getElementById("concept-modal");
@@ -67,6 +70,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const summaryModalBody = document.getElementById("summary-modal-body");
   const summaryModalCloseBtn = document.getElementById(
     "summary-modal-close-btn"
+  );
+
+  // Elementos del Modal de Historicidad de Relaciones
+  const relationshipModal = document.getElementById("relationship-modal");
+  const relationshipModalTitle = document.getElementById(
+    "relationship-modal-title"
+  );
+  const relationshipModalCloseBtn = document.getElementById(
+    "relationship-modal-close-btn"
+  );
+  const relationshipHistoricityForm = document.getElementById(
+    "relationship-historicity-form"
+  );
+  const relationshipIdInput = document.getElementById("relationship-id");
+  const relationshipTemporalStartInput = document.getElementById(
+    "relationship-temporal-start"
+  );
+  const relationshipTemporalEndInput = document.getElementById(
+    "relationship-temporal-end"
+  );
+  const relationshipTemporalRelevanceInput = document.getElementById(
+    "relationship-temporal-relevance"
+  );
+  const clearRelationshipBtn = document.getElementById(
+    "clear-relationship-btn"
   );
 
   // Elementos del editor de categorías
@@ -708,6 +736,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Manejadores del modal de historicidad de relaciones
+  relationshipHistoricityForm.addEventListener(
+    "submit",
+    saveRelationshipHistoricity
+  );
+  relationshipModalCloseBtn.addEventListener("click", closeRelationshipModal);
+  clearRelationshipBtn.addEventListener("click", closeRelationshipModal);
+  relationshipModal.addEventListener("click", (e) => {
+    if (e.target === relationshipModal) {
+      closeRelationshipModal();
+    }
+  });
+
   // --- Función para exportar el resumen a PDF ---
   async function exportSummaryToPdf() {
     try {
@@ -1108,7 +1149,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const [conceptsRes, categoriesRes] = await Promise.all([
         supabase
           .from("concepts")
-          .select("id, created_at, category_id")
+          .select(
+            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance"
+          )
           .eq("thesaurus_id", state.activeThesaurusId),
         supabase
           .from("categories")
@@ -1221,17 +1264,44 @@ document.addEventListener("DOMContentLoaded", () => {
       relatedConceptsSelect.selectedOptions
     ).map((opt) => opt.value);
 
+    // Campos de historicidad
+    const temporalStart = temporalStartInput.value
+      ? parseInt(temporalStartInput.value)
+      : null;
+    const temporalEnd = temporalEndInput.value
+      ? parseInt(temporalEndInput.value)
+      : null;
+    const temporalRelevance = temporalRelevanceInput.value
+      ? parseFloat(temporalRelevanceInput.value)
+      : null;
+
     try {
       let currentConceptId = conceptId;
 
       if (!currentConceptId) {
         const { data, error } = await supabase
           .from("concepts")
-          .insert({ thesaurus_id: thesaurusId })
+          .insert({
+            thesaurus_id: thesaurusId,
+            temporal_start: temporalStart,
+            temporal_end: temporalEnd,
+            temporal_relevance: temporalRelevance,
+          })
           .select("id")
           .single();
         if (error) throw error;
         currentConceptId = data.id;
+      } else {
+        // Actualizar los campos temporales del concepto existente
+        const { error } = await supabase
+          .from("concepts")
+          .update({
+            temporal_start: temporalStart,
+            temporal_end: temporalEnd,
+            temporal_relevance: temporalRelevance,
+          })
+          .eq("id", currentConceptId);
+        if (error) throw error;
       }
 
       await Promise.all([
@@ -1384,12 +1454,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
     link.exit().remove();
 
-    link = link
+    const linkEnter = link
       .enter()
       .append("line")
       .attr("class", (d) => `link ${d.relationship_type}`)
-      .attr("stroke-width", 2)
-      .merge(link);
+      .on("contextmenu", showRelationshipContextMenu)
+      .on("mouseover", showLinkTooltip)
+      .on("mousemove", moveTooltip)
+      .on("mouseout", hideTooltip);
+
+    link = linkEnter.merge(link);
+
+    // Actualizar estilos visuales según historicidad
+    link
+      .attr("stroke-width", (d) => {
+        // Grosor base según tipo de relación
+        const baseWidth = 2;
+        // Si tiene temporal_relevance, ajustar el grosor
+        if (
+          d.temporal_relevance !== null &&
+          d.temporal_relevance !== undefined
+        ) {
+          return baseWidth * (0.5 + d.temporal_relevance);
+        }
+        return baseWidth;
+      })
+      .attr("opacity", (d) => {
+        // Si tiene temporal_relevance, usarla para la opacidad
+        if (
+          d.temporal_relevance !== null &&
+          d.temporal_relevance !== undefined
+        ) {
+          return 0.3 + d.temporal_relevance * 0.7; // Opacidad entre 0.3 y 1.0
+        }
+        return 0.8; // Opacidad por defecto
+      })
+      .attr("stroke-dasharray", (d) => {
+        // Si tiene fechas definidas, usar línea sólida, si no, línea punteada
+        if (d.temporal_start || d.temporal_end) {
+          return "none";
+        }
+        return null;
+      });
 
     // NODES
     node = nodeGroup.selectAll(".node").data(nodes, (d) => d.id);
@@ -1506,6 +1612,103 @@ document.addEventListener("DOMContentLoaded", () => {
       menu.remove();
       d3.select("body").on("click.context-menu", null);
     });
+  }
+
+  function showRelationshipContextMenu(event, d) {
+    event.preventDefault();
+    showRelationshipHistoricityModal(d);
+  }
+
+  function showRelationshipHistoricityModal(relationship) {
+    const sourceConcept = state.concepts.find(
+      (c) => c.id === relationship.source_concept_id
+    );
+    const targetConcept = state.concepts.find(
+      (c) => c.id === relationship.target_concept_id
+    );
+
+    const sourceLabel =
+      sourceConcept?.labels.find((l) => l.label_type === "prefLabel")
+        ?.label_text || "Concepto";
+    const targetLabel =
+      targetConcept?.labels.find((l) => l.label_type === "prefLabel")
+        ?.label_text || "Concepto";
+
+    relationshipModalTitle.textContent = `Historicidad: ${sourceLabel} → ${targetLabel}`;
+    relationshipIdInput.value = relationship.id;
+    relationshipTemporalStartInput.value = relationship.temporal_start || "";
+    relationshipTemporalEndInput.value = relationship.temporal_end || "";
+    relationshipTemporalRelevanceInput.value =
+      relationship.temporal_relevance || "";
+
+    relationshipModal.classList.remove("hidden");
+  }
+
+  async function saveRelationshipHistoricity(e) {
+    e.preventDefault();
+
+    const relationshipId = relationshipIdInput.value;
+    if (!relationshipId) {
+      Swal.fire("Error", "No se pudo identificar la relación.", "error");
+      return;
+    }
+
+    const temporalStart = relationshipTemporalStartInput.value
+      ? parseInt(relationshipTemporalStartInput.value)
+      : null;
+    const temporalEnd = relationshipTemporalEndInput.value
+      ? parseInt(relationshipTemporalEndInput.value)
+      : null;
+    const temporalRelevance = relationshipTemporalRelevanceInput.value
+      ? parseFloat(relationshipTemporalRelevanceInput.value)
+      : null;
+
+    try {
+      const { error } = await supabase
+        .from("relationships")
+        .update({
+          temporal_start: temporalStart,
+          temporal_end: temporalEnd,
+          temporal_relevance: temporalRelevance,
+        })
+        .eq("id", relationshipId);
+
+      if (error) throw error;
+
+      // Actualizar el estado local
+      const relationshipIndex = state.relationships.findIndex(
+        (r) => r.id === relationshipId
+      );
+      if (relationshipIndex !== -1) {
+        state.relationships[relationshipIndex] = {
+          ...state.relationships[relationshipIndex],
+          temporal_start: temporalStart,
+          temporal_end: temporalEnd,
+          temporal_relevance: temporalRelevance,
+        };
+      }
+
+      Swal.fire(
+        "Éxito",
+        "Historicidad de la relación guardada correctamente.",
+        "success"
+      );
+      relationshipModal.classList.add("hidden");
+      updateGraph(); // Actualizar la visualización
+    } catch (error) {
+      console.error("Error saving relationship historicity:", error);
+      Swal.fire(
+        "Error",
+        `No se pudo guardar la historicidad: ${error.message}`,
+        "error"
+      );
+    }
+  }
+
+  function closeRelationshipModal() {
+    relationshipModal.classList.add("hidden");
+    relationshipHistoricityForm.reset();
+    relationshipIdInput.value = "";
   }
 
   async function setNodeCategory(conceptId, categoryId) {
@@ -1647,6 +1850,26 @@ document.addEventListener("DOMContentLoaded", () => {
       moveTooltip(event);
     }
   }
+
+  function showLinkTooltip(event, d) {
+    let tooltipContent = `<strong>Relación:</strong> ${d.relationship_type}<br>`;
+
+    if (d.temporal_start || d.temporal_end || d.temporal_relevance) {
+      tooltipContent += `<strong>Historicidad:</strong><br>`;
+      if (d.temporal_start) tooltipContent += `Inicio: ${d.temporal_start}<br>`;
+      if (d.temporal_end) tooltipContent += `Fin: ${d.temporal_end}<br>`;
+      if (d.temporal_relevance)
+        tooltipContent += `Relevancia: ${d.temporal_relevance}`;
+    } else {
+      tooltipContent += `<em>Sin historicidad definida</em><br>`;
+      tooltipContent += `<small>Clic derecho para editar</small>`;
+    }
+
+    tooltip.classList.remove("hidden");
+    tooltip.innerHTML = tooltipContent;
+    moveTooltip(event);
+  }
+
   function moveTooltip(event) {
     tooltip.style.left = event.pageX + 15 + "px";
     tooltip.style.top = event.pageY + 15 + "px";
@@ -1709,6 +1932,11 @@ document.addEventListener("DOMContentLoaded", () => {
       concept.notes.find((n) => n.note_type === "scopeNote")?.note_text || "";
     exampleInput.value =
       concept.notes.find((n) => n.note_type === "example")?.note_text || "";
+
+    // Cargar campos de historicidad
+    temporalStartInput.value = concept.temporal_start || "";
+    temporalEndInput.value = concept.temporal_end || "";
+    temporalRelevanceInput.value = concept.temporal_relevance || "";
 
     populateConceptDropdowns(concept.id);
 
