@@ -1150,7 +1150,7 @@ document.addEventListener("DOMContentLoaded", () => {
         supabase
           .from("concepts")
           .select(
-            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance"
+            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance, fixed_x, fixed_y"
           )
           .eq("thesaurus_id", state.activeThesaurusId),
         supabase
@@ -1396,6 +1396,8 @@ document.addEventListener("DOMContentLoaded", () => {
           .eq("id", conceptId);
         if (error) throw error;
 
+        // La posición fija se elimina automáticamente con el concepto
+
         Swal.fire("Eliminado", "El concepto ha sido eliminado.", "success");
         await fetchAllConceptData();
         clearForm();
@@ -1431,6 +1433,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "Sin Etiqueta",
       fullConcept: c,
     }));
+
+    // Cargar posiciones fijas desde localStorage
+    loadFixedPositions(nodes);
 
     const nodeIds = new Set(nodes.map((n) => n.id));
     const links = state.relationships
@@ -1518,12 +1523,24 @@ document.addEventListener("DOMContentLoaded", () => {
     nodeEnter
       .append("circle")
       .attr("r", 10)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
       .on("click", (event, d) => {
         if (event.shiftKey) {
           showConceptModal(d.fullConcept);
         } else {
           showConceptDetails(d.fullConcept);
         }
+      })
+      .on("dblclick", (event, d) => {
+        // Doble clic libera el nodo fijo
+        d.fx = null;
+        d.fy = null;
+        // Actualizar indicador visual
+        d3.select(event.target).attr("stroke", "#fff").attr("stroke-width", 2);
+        // Remover de base de datos
+        removeFixedNodePosition(d.id);
+        simulation.alpha(0.3).restart();
       })
       .on("mouseover", showTooltip)
       .on("mousemove", moveTooltip)
@@ -1538,9 +1555,81 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       return category ? category.color : "#2c5282";
     });
+
+    // Indicador visual para nodos fijos (anclados)
+    node
+      .select("circle")
+      .attr("stroke", (d) =>
+        d.fx !== null && d.fx !== undefined ? "#ff6b6b" : "#fff"
+      )
+      .attr("stroke-width", (d) =>
+        d.fx !== null && d.fx !== undefined ? 5 : 2
+      );
+
     node.select("text").text((d) => d.name);
 
     simulation.alpha(1).restart();
+  }
+
+  // --- GESTIÓN DE POSICIONES FIJAS EN BASE DE DATOS ---
+  async function saveFixedNodePosition(nodeId, x, y) {
+    try {
+      console.log(`💾 Saving fixed position for node ${nodeId}:`, { x, y });
+      const { error } = await supabase
+        .from("concepts")
+        .update({
+          fixed_x: x,
+          fixed_y: y,
+        })
+        .eq("id", nodeId);
+
+      if (error) {
+        console.error("❌ Error saving fixed position:", error);
+      } else {
+        console.log("✅ Position saved successfully");
+      }
+    } catch (err) {
+      console.error("❌ Error in saveFixedNodePosition:", err);
+    }
+  }
+
+  async function removeFixedNodePosition(nodeId) {
+    try {
+      const { error } = await supabase
+        .from("concepts")
+        .update({
+          fixed_x: null,
+          fixed_y: null,
+        })
+        .eq("id", nodeId);
+
+      if (error) {
+        console.error("Error removing fixed position:", error);
+      }
+    } catch (err) {
+      console.error("Error in removeFixedNodePosition:", err);
+    }
+  }
+
+  function loadFixedPositions(nodes) {
+    // Las posiciones fijas ahora vienen directamente de la base de datos
+    // a través de fullConcept.fixed_x y fullConcept.fixed_y
+    let fixedCount = 0;
+    nodes.forEach((node) => {
+      if (
+        node.fullConcept.fixed_x !== null &&
+        node.fullConcept.fixed_x !== undefined &&
+        node.fullConcept.fixed_y !== null &&
+        node.fullConcept.fixed_y !== undefined
+      ) {
+        node.fx = node.fullConcept.fixed_x;
+        node.fy = node.fullConcept.fixed_y;
+        fixedCount++;
+      }
+    });
+    if (fixedCount > 0) {
+      console.log(`✅ Loaded ${fixedCount} fixed node positions from database`);
+    }
   }
 
   function dragstarted(event, d) {
@@ -1556,8 +1645,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function dragended(event, d) {
     if (!event.active) simulation.alphaTarget(0);
-    d.fx = null;
-    d.fy = null;
+    // Mantener la posición fija (no liberar el nodo)
+    // El nodo conservará su posición después de arrastrarlo
+    // d.fx y d.fy ya están establecidos en dragged(), no los ponemos en null
+
+    // Guardar posición en base de datos
+    saveFixedNodePosition(d.id, d.fx, d.fy);
+
+    // Actualizar indicador visual de nodo fijo
+    // Buscar el nodo por su data y actualizar su círculo
+    d3.selectAll(".node")
+      .filter((nodeData) => nodeData.id === d.id)
+      .select("circle")
+      .attr("stroke", "#ff6b6b")
+      .attr("stroke-width", 5);
   }
 
   function showContextMenu(event, d) {
@@ -2993,6 +3094,23 @@ document.addEventListener("DOMContentLoaded", () => {
     await fetchUserThesauruses();
     clearCategoryForm();
     initializeTemporalSystem();
+  }
+
+  // --- PANEL DE AYUDA PARA INTERACCIÓN CON NODOS ---
+  const helpToggleBtn = document.getElementById("toggle-help-btn");
+  const helpContent = document.getElementById("help-content");
+
+  if (helpToggleBtn && helpContent) {
+    helpToggleBtn.addEventListener("click", () => {
+      helpContent.classList.toggle("hidden");
+    });
+
+    // Cerrar al hacer click fuera
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".help-panel")) {
+        helpContent.classList.add("hidden");
+      }
+    });
   }
 
   checkUserSession();
