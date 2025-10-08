@@ -1,5 +1,140 @@
 # 📝 CHANGELOG - Cronaurus
 
+## [2.1.0] - 2025-10-08 - Controles Avanzados de Timeline ⚡
+
+### ✨ Características Nuevas
+
+#### 1. Control de Cierre y Reactivación
+- **Botón de Cierre (✕)**: Permite cerrar el panel temporal y ver el grafo completo
+- **Vista Completa**: Al cerrar, se muestran todos los conceptos sin filtrado temporal
+- **Botón Flotante de Reactivación**: Aparece en esquina inferior izquierda cuando timeline está cerrado
+- **Transiciones Suaves**: Animaciones al mostrar/ocultar componentes
+
+#### 2. Control de Velocidad de Animación
+- **Slider de Velocidad**: Ajuste de 50ms a 500ms por año
+- **Indicador Numérico**: Muestra valor actual en tiempo real
+- **Persistencia**: La velocidad se mantiene durante la sesión
+- **Ubicación**: Panel secundario debajo de controles principales
+
+#### 3. Configuración de Rango Temporal
+- **Modal de Configuración**: Interfaz dedicada para ajustar fechas
+- **Campos Editables**: Min y Max personalizables
+- **Auto-Cálculo**: Botón para recalcular rango desde datos actuales
+- **Validación**: Previene rangos inválidos (min > max)
+- **Persistencia Visual**: Actualiza etiquetas y slider inmediatamente
+
+### 🎨 Mejoras de UI/UX
+
+#### Nuevos Elementos
+- **Encabezado del Timeline**: Ahora incluye botón de configuración (⚙) y cierre (✕)
+- **Panel de Controles Secundarios**: Velocidad de animación integrada
+- **Modal Estilizado**: Fondo glassmorphism con gradientes azules
+- **Mensajes Informativos**: Clase `.info-message` para feedback visual
+
+#### Estados Visuales
+- **temporalState.isActive**: Flag que controla activación/desactivación del filtrado
+- **Clase `.show`**: Control de visibilidad del botón flotante
+- **Efectos Hover**: Mejoras en interactividad de todos los botones
+
+### 🔧 Cambios Técnicos
+
+| Archivo   | Función                     | Cambio                                            |
+| --------- | --------------------------- | ------------------------------------------------- |
+| script.js | temporalState               | Añadido flag `isActive` para control de filtrado  |
+| script.js | closeTemporalFilter()       | Nueva función para cerrar y mostrar todo el grafo |
+| script.js | activateTemporalFilter()    | Nueva función para reactivar filtrado temporal    |
+| script.js | handleSpeedChange()         | Control de velocidad de animación                 |
+| script.js | openTimelineConfig()        | Abre modal de configuración de rango              |
+| script.js | applyTimelineRange()        | Aplica nuevo rango personalizado                  |
+| script.js | autoCalculateRange()        | Recalcula rango desde datos actuales              |
+| script.js | updateGraphByYear()         | Modificado para respetar flag `isActive`          |
+| main.html | timeline-header-buttons     | Nuevo div con botones de config y cierre          |
+| main.html | timeline-controls-secondary | Nuevo panel para control de velocidad             |
+| main.html | timeline-config-modal       | Modal completo para configuración de rango        |
+| main.html | reactivate-timeline-btn     | Botón flotante de reactivación                    |
+| style.css | .timeline-header-buttons    | Estilos para grupo de botones del header          |
+| style.css | .timeline-close             | Estilos del botón de cierre                       |
+| style.css | .timeline-speed-control     | Slider de velocidad con gradiente                 |
+| style.css | .floating-timeline-btn      | Botón flotante con animaciones                    |
+| style.css | .info-message               | Mensaje informativo en modal                      |
+
+### 📊 Funcionalidades Añadidas
+
+| Funcionalidad                | Implementación                         | Estado |
+| ---------------------------- | -------------------------------------- | ------ |
+| Cerrar timeline              | Botón ✕ que desactiva filtrado         | ✅      |
+| Ver grafo completo           | `temporalState.isActive = false`       | ✅      |
+| Reactivar timeline           | Botón flotante con animación           | ✅      |
+| Velocidad ajustable          | Slider 50-500ms con indicador          | ✅      |
+| Configurar rango manualmente | Modal con inputs min/max               | ✅      |
+| Auto-calcular rango          | Recalcula desde conceptos actuales     | ✅      |
+| Validación de rangos         | Previene min > max                     | ✅      |
+| Notificaciones visuales      | SweetAlert2 para feedback              | ✅      |
+| Transiciones suaves          | CSS transitions en todos los controles | ✅      |
+
+### 🎯 Casos de Uso Mejorados
+
+#### Caso 1: Análisis Temporal Pausado
+```
+Usuario quiere ver TODO el grafo sin restricciones temporales
+→ Clic en botón ✕ → Panel se cierra → Todos los conceptos aparecen
+→ Botón flotante aparece en esquina → Puede reactivar cuando quiera
+```
+
+#### Caso 2: Animación Personalizada
+```
+Usuario quiere acelerar la animación temporal
+→ Ajusta slider de velocidad a 100ms → Animación se acelera 5x
+→ Experimenta con diferentes velocidades en tiempo real
+```
+
+#### Caso 3: Datos Históricos Extendidos
+```
+Usuario añadió conceptos de 1850-2050
+→ Clic en ⚙ → Modal de configuración → Clic "Auto-Calcular"
+→ Rango se ajusta automáticamente a 1850-2050
+→ Timeline refleja nuevo rango inmediatamente
+```
+
+### 🐛 Bugs Prevenidos
+
+- **Rango Inválido**: Validación impide min > max en configuración
+- **Elementos Ausentes**: Verificaciones de DOM antes de manipular
+- **Estado Inconsistente**: `isActive` flag sincroniza comportamiento
+
+### 📁 Archivos Modificados
+
+#### main.html
+- Líneas 195-235: Añadido encabezado con botones de control
+- Líneas 240-260: Panel secundario con control de velocidad
+- Líneas 308-348: Modal de configuración de rango
+- Líneas 353-356: Botón flotante de reactivación
+
+#### script.js
+- Línea 2341: Añadido `temporalState.isActive` flag
+- Líneas 2451-2475: Modificado `updateGraphByYear()` para respetar isActive
+- Líneas 2672-2693: Nueva función `closeTemporalFilter()`
+- Líneas 2695-2709: Nueva función `activateTemporalFilter()`
+- Líneas 2711-2717: Nueva función `handleSpeedChange()`
+- Líneas 2719-2825: Tres nuevas funciones de configuración de rango
+- Líneas 2886-2960: Event listeners actualizados en `initializeTemporalSystem()`
+
+#### style.css
+- Líneas 615-645: Estilos del encabezado y botones
+- Líneas 730-780: Control de velocidad con slider estilizado
+- Líneas 840-890: Modal de configuración
+- Líneas 920-964: Botón flotante con animaciones
+
+### 🔜 Mejoras Futuras (v2.2.0)
+
+- [ ] Guardar velocidad preferida en localStorage
+- [ ] Presets de velocidad (lenta/normal/rápida)
+- [ ] Atajos de teclado para controles temporales
+- [ ] Historial de rangos utilizados
+- [ ] Exportar configuración temporal
+
+---
+
 ## [2.0.1] - 2025-10-08 - Hotfix: Recursión Infinita 🔧
 
 ### 🐛 Bugs Corregidos

@@ -193,21 +193,38 @@
             <div id="loader" class="hidden">Cargando...</div>
             <div id="tooltip" class="hidden"></div>
 
+            <!-- BOTÓN FLOTANTE PARA REACTIVAR TIMELINE -->
+            <button id="reactivate-timeline-btn" class="floating-timeline-btn" title="Activar filtro temporal">
+                🕰️ Activar Filtro Temporal
+            </button>
+
             <!-- TIMELINE COMPONENT -->
             <div id="temporal-controls">
                 <div id="timeline-header">
                     <h3>Línea Temporal</h3>
-                    <button id="toggle-timeline-btn" class="timeline-toggle">▼</button>
+                    <div class="timeline-header-buttons">
+                        <button id="toggle-timeline-btn" class="timeline-toggle" title="Expandir/Colapsar">▼</button>
+                        <button id="close-timeline-btn" class="timeline-close"
+                            title="Cerrar filtro temporal y mostrar todo">✕</button>
+                    </div>
                 </div>
                 <div id="timeline-container" class="timeline-expanded">
                     <div id="timeline-controls-bar">
                         <button id="play-btn" class="temporal-btn" title="Reproducir animación temporal">▶</button>
                         <button id="pause-btn" class="temporal-btn hidden" title="Pausar animación">⏸</button>
                         <button id="reset-btn" class="temporal-btn" title="Restablecer">↻</button>
+                        <button id="config-btn" class="temporal-btn" title="Configurar rango temporal">⚙️</button>
                         <span id="current-year-display">1950</span>
                         <label class="timeline-checkbox">
                             <input type="checkbox" id="show-future-checkbox" checked>
                             <span>Mostrar conceptos futuros</span>
+                        </label>
+                    </div>
+                    <div id="timeline-controls-secondary">
+                        <label class="timeline-speed-control">
+                            <span>Velocidad:</span>
+                            <input type="range" id="speed-slider" min="50" max="500" value="200" step="50">
+                            <span id="speed-display">200ms</span>
                         </label>
                     </div>
                     <div id="timeline-slider-container">
@@ -300,6 +317,49 @@
                 </form>
             </div>
         </div>
+    </div>
+
+    <!-- MODAL PARA CONFIGURACIÓN DE RANGO TEMPORAL -->
+    <div id="timeline-config-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configurar Rango Temporal</h3>
+                <button id="timeline-config-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="timeline-config-body">
+                <form id="timeline-config-form">
+                    <fieldset>
+                        <legend>Rango de la Línea Temporal</legend>
+
+                        <label for="timeline-min-year">Año Mínimo:</label>
+                        <input type="number" id="timeline-min-year" placeholder="Ej: 1950" required>
+
+                        <label for="timeline-max-year">Año Máximo:</label>
+                        <input type="number" id="timeline-max-year" placeholder="Ej: 2030" required>
+
+                        <div class="info-message">
+                            💡 El rango actual se calcula automáticamente según tus datos.
+                            Puedes ajustarlo manualmente si necesitas ampliar o reducir el período visible.
+                        </div>
+                    </fieldset>
+
+                    <div class="button-group">
+                        <button type="submit">Aplicar Rango</button>
+                        <button type="button" id="timeline-config-auto-btn">Calcular Automático</button>
+                        <button type="button" id="timeline-config-cancel-btn">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button type="submit">Guardar</button>
+        <button type="button" id="clear-relationship-btn">Cancelar</button>
+    </div>
+    </form>
+    </div>
+    </div>
     </div>
 
     <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->

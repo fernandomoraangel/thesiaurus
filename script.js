@@ -2346,6 +2346,7 @@ document.addEventListener("DOMContentLoaded", () => {
     animationInterval: null,
     showFutureConcepts: true,
     animationSpeed: 200, // milisegundos por año
+    isActive: true, // Nueva: indica si el filtro temporal está activo
   };
 
   // Elementos del DOM para el sistema temporal
@@ -2356,7 +2357,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetBtn = document.getElementById("reset-btn");
   const showFutureCheckbox = document.getElementById("show-future-checkbox");
   const toggleTimelineBtn = document.getElementById("toggle-timeline-btn");
+  const closeTimelineBtn = document.getElementById("close-timeline-btn");
   const timelineContainer = document.getElementById("timeline-container");
+  const speedSlider = document.getElementById("speed-slider");
+  const speedDisplay = document.getElementById("speed-display");
+  const configBtn = document.getElementById("config-btn");
+
+  // Elementos del modal de configuración
+  const timelineConfigModal = document.getElementById("timeline-config-modal");
+  const timelineConfigCloseBtn = document.getElementById(
+    "timeline-config-close-btn"
+  );
+  const timelineConfigForm = document.getElementById("timeline-config-form");
+  const timelineMinYearInput = document.getElementById("timeline-min-year");
+  const timelineMaxYearInput = document.getElementById("timeline-max-year");
+  const timelineConfigAutoBtn = document.getElementById(
+    "timeline-config-auto-btn"
+  );
+  const timelineConfigCancelBtn = document.getElementById(
+    "timeline-config-cancel-btn"
+  );
 
   /**
    * Determina si un concepto debe ser visible en el año actual
@@ -2435,9 +2455,28 @@ document.addEventListener("DOMContentLoaded", () => {
    * Actualiza la visualización del grafo basándose en el año actual
    */
   function updateGraphByYear(year, animate = true) {
-    const showFuture = temporalState.showFutureConcepts;
-
     if (!node || !link) return;
+
+    // Si el filtro temporal no está activo, mostrar todo con opacidad completa
+    if (!temporalState.isActive) {
+      node
+        .transition()
+        .duration(animate ? 500 : 0)
+        .style("opacity", 1)
+        .attr("pointer-events", "all");
+
+      link
+        .transition()
+        .duration(animate ? 500 : 0)
+        .style("opacity", function (d) {
+          return getTemporalOpacity(d);
+        })
+        .attr("pointer-events", "all");
+
+      return;
+    }
+
+    const showFuture = temporalState.showFutureConcepts;
 
     // Filtrar y actualizar nodos
     node
@@ -2623,6 +2662,8 @@ document.addEventListener("DOMContentLoaded", () => {
    * Toggle para expandir/colapsar el timeline
    */
   function toggleTimelinePanel() {
+    if (!timelineContainer || !toggleTimelineBtn) return;
+
     timelineContainer.classList.toggle("timeline-expanded");
     timelineContainer.classList.toggle("timeline-collapsed");
 
@@ -2631,6 +2672,174 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       toggleTimelineBtn.textContent = "▼";
     }
+  }
+
+  /**
+   * Cierra el filtro temporal y muestra todos los conceptos
+   */
+  function closeTemporalFilter() {
+    // Detener animación si está en curso
+    stopTemporalAnimation();
+
+    // Desactivar el filtro temporal
+    temporalState.isActive = false;
+
+    // Mostrar todos los nodos y relaciones
+    updateGraphByYear(temporalState.currentYear, true);
+
+    // Ocultar el panel temporal
+    const temporalControls = document.getElementById("temporal-controls");
+    const reactivateBtn = document.getElementById("reactivate-timeline-btn");
+    if (temporalControls) {
+      temporalControls.style.display = "none";
+    }
+    if (reactivateBtn) {
+      reactivateBtn.classList.add("show");
+    }
+
+    Swal.fire({
+      title: "Filtro Temporal Desactivado",
+      text: "Se muestran todos los conceptos y relaciones sin restricción temporal.",
+      icon: "info",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+  }
+
+  /**
+   * Reactiva el filtro temporal
+   */
+  function activateTemporalFilter() {
+    temporalState.isActive = true;
+    const temporalControls = document.getElementById("temporal-controls");
+    const reactivateBtn = document.getElementById("reactivate-timeline-btn");
+    if (temporalControls) {
+      temporalControls.style.display = "block";
+    }
+    if (reactivateBtn) {
+      reactivateBtn.classList.remove("show");
+    }
+    updateGraphByYear(temporalState.currentYear, true);
+
+    Swal.fire({
+      title: "Filtro Temporal Activado",
+      text: "El grafo ahora muestra conceptos según el año seleccionado.",
+      icon: "success",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+  }
+
+  /**
+   * Maneja el cambio de velocidad de animación
+   */
+  function handleSpeedChange(event) {
+    const speed = parseInt(event.target.value);
+    temporalState.animationSpeed = speed;
+    if (speedDisplay) {
+      speedDisplay.textContent = `${speed}ms`;
+    }
+
+    // Si está reproduciendo, reiniciar con nueva velocidad
+    if (temporalState.isPlaying) {
+      stopTemporalAnimation();
+      startTemporalAnimation();
+    }
+  }
+
+  /**
+   * Abre el modal de configuración de rango temporal
+   */
+  function openTimelineConfig() {
+    if (!timelineConfigModal || !timelineMinYearInput || !timelineMaxYearInput)
+      return;
+
+    // Llenar con valores actuales
+    timelineMinYearInput.value = temporalState.minYear;
+    timelineMaxYearInput.value = temporalState.maxYear;
+
+    timelineConfigModal.classList.remove("hidden");
+  }
+
+  /**
+   * Cierra el modal de configuración de rango temporal
+   */
+  function closeTimelineConfig() {
+    if (!timelineConfigModal) return;
+    timelineConfigModal.classList.add("hidden");
+  }
+
+  /**
+   * Aplica el nuevo rango temporal
+   */
+  function applyTimelineRange(e) {
+    e.preventDefault();
+
+    const minYear = parseInt(timelineMinYearInput.value);
+    const maxYear = parseInt(timelineMaxYearInput.value);
+
+    // Validación
+    if (isNaN(minYear) || isNaN(maxYear)) {
+      Swal.fire("Error", "Por favor ingresa años válidos.", "error");
+      return;
+    }
+
+    if (minYear >= maxYear) {
+      Swal.fire(
+        "Error",
+        "El año mínimo debe ser menor que el año máximo.",
+        "error"
+      );
+      return;
+    }
+
+    // Aplicar nuevo rango
+    temporalState.minYear = minYear;
+    temporalState.maxYear = maxYear;
+    temporalState.currentYear = maxYear;
+
+    // Actualizar slider
+    if (timelineSlider) {
+      timelineSlider.min = minYear;
+      timelineSlider.max = maxYear;
+      timelineSlider.value = maxYear;
+    }
+
+    // Actualizar etiquetas y display
+    updateTimelineLabels();
+    updateYearDisplay(maxYear);
+    updateGraphByYear(maxYear, true);
+
+    closeTimelineConfig();
+
+    Swal.fire({
+      title: "¡Rango Actualizado!",
+      text: `Nuevo rango: ${minYear} - ${maxYear}`,
+      icon: "success",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+  }
+
+  /**
+   * Calcula automáticamente el rango basado en los datos
+   */
+  function autoCalculateRange() {
+    calculateTemporalRange();
+
+    // Actualizar inputs del modal
+    if (timelineMinYearInput && timelineMaxYearInput) {
+      timelineMinYearInput.value = temporalState.minYear;
+      timelineMaxYearInput.value = temporalState.maxYear;
+    }
+
+    Swal.fire({
+      title: "Rango Calculado",
+      text: `Rango automático: ${temporalState.minYear} - ${temporalState.maxYear}`,
+      icon: "info",
+      timer: 2000,
+      showConfirmButton: false,
+    });
   }
 
   /**
@@ -2702,7 +2911,7 @@ document.addEventListener("DOMContentLoaded", () => {
    * Inicializa el sistema temporal
    */
   function initializeTemporalSystem() {
-    // Verificar que todos los elementos existan
+    // Verificar que los elementos esenciales existan
     if (
       !timelineSlider ||
       !playBtn ||
@@ -2718,13 +2927,62 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Event listeners
+    // Event listeners principales
     timelineSlider.addEventListener("input", handleTimelineChange);
     playBtn.addEventListener("click", startTemporalAnimation);
     pauseBtn.addEventListener("click", stopTemporalAnimation);
     resetBtn.addEventListener("click", resetTimeline);
     showFutureCheckbox.addEventListener("change", handleShowFutureToggle);
     toggleTimelineBtn.addEventListener("click", toggleTimelinePanel);
+
+    // Event listeners nuevos
+    if (closeTimelineBtn) {
+      closeTimelineBtn.addEventListener("click", closeTemporalFilter);
+    }
+
+    // Botón flotante de reactivación
+    const reactivateBtn = document.getElementById("reactivate-timeline-btn");
+    if (reactivateBtn) {
+      reactivateBtn.addEventListener("click", activateTemporalFilter);
+    }
+
+    if (speedSlider) {
+      speedSlider.addEventListener("input", handleSpeedChange);
+      // Inicializar display de velocidad
+      if (speedDisplay) {
+        speedDisplay.textContent = `${temporalState.animationSpeed}ms`;
+      }
+    }
+
+    if (configBtn) {
+      configBtn.addEventListener("click", openTimelineConfig);
+    }
+
+    // Event listeners del modal de configuración
+    if (timelineConfigModal) {
+      if (timelineConfigCloseBtn) {
+        timelineConfigCloseBtn.addEventListener("click", closeTimelineConfig);
+      }
+
+      if (timelineConfigForm) {
+        timelineConfigForm.addEventListener("submit", applyTimelineRange);
+      }
+
+      if (timelineConfigAutoBtn) {
+        timelineConfigAutoBtn.addEventListener("click", autoCalculateRange);
+      }
+
+      if (timelineConfigCancelBtn) {
+        timelineConfigCancelBtn.addEventListener("click", closeTimelineConfig);
+      }
+
+      // Cerrar modal al hacer clic fuera
+      timelineConfigModal.addEventListener("click", (e) => {
+        if (e.target === timelineConfigModal) {
+          closeTimelineConfig();
+        }
+      });
+    }
 
     // Calcular rango temporal inicial
     calculateTemporalRange();
