@@ -12,6 +12,12 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
   - **Etiquetas Preferidas, Alternativas y Ocultas:** Define múltiples etiquetas para cada concepto.
   - **Notas de Documentación:** Añade definiciones, notas de alcance y ejemplos.
   - **Relaciones Semánticas:** Establece conexiones entre conceptos (más amplios, más específicos, relacionados).
+- **🕰️ Dimensión Temporal (4ª Dimensión):** ⭐ **NUEVO**
+  - **Línea de Tiempo Interactiva:** Navega por la historia de tus conceptos con un slider temporal (1950-2030+).
+  - **Animación Temporal:** Observa la evolución de tu tesauro año por año con controles play/pause.
+  - **Filtrado Dinámico:** Los conceptos aparecen y desaparecen según su marco temporal.
+  - **Historicidad de Relaciones:** Define cuándo fueron relevantes las conexiones entre conceptos.
+  - **Visualización Evolutiva:** Grosor y opacidad variables basados en la relevancia temporal.
 - **Visualización Interactiva:** Un grafo dinámico e interactivo de la estructura del tesauro impulsado por D3.js.
 - **Búsqueda:** Encuentra y resalta conceptos rápidamente dentro de la visualización.
 - **Importar/Exportar:**
@@ -43,7 +49,9 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
 ├── README.md
 ├── register.html
 ├── script.js
-└── style.css
+├── style.css
+├── TEMPORAL_DIMENSION_GUIDE.md    # 📘 Guía completa de la dimensión temporal
+└── IMPLEMENTATION_SUMMARY.md      # 📋 Resumen técnico de implementación
 ```
 
 - **`index.html`**: La página de inicio de sesión.
@@ -53,16 +61,21 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
 - **`auth.js`**: Maneja la autenticación de usuarios (inicio de sesión y registro) con Supabase.
 - **`script.js`**: La lógica principal de la aplicación para la gestión de tesauros, edición de conceptos y visualización con D3.js.
 - **`final_migration.sql`**: El script SQL para configurar el esquema de la base de datos en Supabase.
+- **`TEMPORAL_DIMENSION_GUIDE.md`**: 📘 Guía detallada para usar la dimensión temporal.
+- **`IMPLEMENTATION_SUMMARY.md`**: 📋 Documentación técnica de la implementación temporal.
 
 ## Esquema de la Base de Datos
 
-La base de datos está estructurada para seguir el modelo SKOS:
+La base de datos está estructurada para seguir el modelo SKOS con extensiones temporales:
 
 - **`thesauruses`**: Almacena los metadatos de cada tesauro.
 - **`concepts`**: Representa los conceptos individuales dentro de un tesauro.
+  - 🕰️ Incluye campos temporales: `temporal_start`, `temporal_end`, `temporal_relevance`
 - **`labels`**: Almacena las etiquetas `prefLabel`, `altLabel` y `hiddenLabel` para cada concepto.
 - **`notes`**: Contiene las notas `definition`, `scopeNote` y `example` para cada concepto.
 - **`relationships`**: Define las relaciones `broader` (más amplio), `narrower` (más específico) y `related` (relacionado) entre conceptos.
+  - 🕰️ Incluye campos temporales: `temporal_start`, `temporal_end`, `temporal_relevance`
+- **`categories`**: Organiza conceptos en categorías con colores personalizables.
 
 La Seguridad a Nivel de Fila (RLS) está habilitada en Supabase para asegurar que los usuarios solo puedan acceder y gestionar sus propios tesauros.
 
@@ -91,9 +104,22 @@ Para ejecutar este proyecto localmente, necesitarás una cuenta de Supabase.
 1.  **Regístrate e Inicia Sesión:** Crea una cuenta e inicia sesión para acceder a la aplicación principal.
 2.  **Crea un Tesauro:** Desde el panel principal, crea un nuevo tesauro.
 3.  **Añade Conceptos:** Usa el formulario "Editor de Conceptos (SKOS)" para añadir nuevos conceptos con sus etiquetas y notas.
-4.  **Crea Relaciones:** Selecciona conceptos en los menús desplegables para definir sus relaciones.
-5.  **Visualiza:** Observa cómo crece tu tesauro en el grafo interactivo.
-6.  **Exporta:** Guarda tu trabajo exportándolo a JSON o generando un resumen en PDF.
+4.  **Define Temporalidad:** 🕰️ Establece el año de inicio, fin y relevancia temporal para cada concepto.
+5.  **Crea Relaciones:** Selecciona conceptos en los menús desplegables para definir sus relaciones.
+6.  **Añade Historicidad a Relaciones:** 🕰️ Haz clic derecho en las aristas del grafo para editar su marco temporal.
+7.  **Visualiza:** Observa cómo crece tu tesauro en el grafo interactivo.
+8.  **Explora en el Tiempo:** 🕰️ Usa el slider temporal en la parte inferior para navegar por la historia de tu tesauro.
+9.  **Anima la Evolución:** 🕰️ Presiona el botón Play para ver cómo evoluciona tu red de conceptos año por año.
+10. **Exporta:** Guarda tu trabajo exportándolo a JSON o generando un resumen en PDF.
+
+### 🕰️ Guía de la Dimensión Temporal
+
+Para aprender a usar todas las características de la dimensión temporal, consulta la [Guía de la Dimensión Temporal](TEMPORAL_DIMENSION_GUIDE.md) que incluye:
+- Tutorial paso a paso
+- Ejemplos de casos de uso
+- Configuración avanzada
+- Solución de problemas
+- Mejores prácticas
 
 ## Licencia
 

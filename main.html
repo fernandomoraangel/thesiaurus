@@ -192,6 +192,36 @@
         <div id="visualization-panel">
             <div id="loader" class="hidden">Cargando...</div>
             <div id="tooltip" class="hidden"></div>
+
+            <!-- TIMELINE COMPONENT -->
+            <div id="temporal-controls">
+                <div id="timeline-header">
+                    <h3>Línea Temporal</h3>
+                    <button id="toggle-timeline-btn" class="timeline-toggle">▼</button>
+                </div>
+                <div id="timeline-container" class="timeline-expanded">
+                    <div id="timeline-controls-bar">
+                        <button id="play-btn" class="temporal-btn" title="Reproducir animación temporal">▶</button>
+                        <button id="pause-btn" class="temporal-btn hidden" title="Pausar animación">⏸</button>
+                        <button id="reset-btn" class="temporal-btn" title="Restablecer">↻</button>
+                        <span id="current-year-display">1950</span>
+                        <label class="timeline-checkbox">
+                            <input type="checkbox" id="show-future-checkbox" checked>
+                            <span>Mostrar conceptos futuros</span>
+                        </label>
+                    </div>
+                    <div id="timeline-slider-container">
+                        <input type="range" id="timeline-slider" min="1950" max="2030" value="2030" step="1">
+                        <div id="timeline-labels">
+                            <span>1950</span>
+                            <span>1970</span>
+                            <span>1990</span>
+                            <span>2010</span>
+                            <span>2030</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

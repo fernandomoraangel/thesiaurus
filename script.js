@@ -2051,6 +2051,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateAll() {
     updateGraph();
     populateConceptDropdowns();
+    // Actualizar sistema temporal si está inicializado
+    if (typeof temporalState !== "undefined" && temporalState.currentYear) {
+      calculateTemporalRange();
+      updateGraphByYear(temporalState.currentYear, false);
+    }
   }
 
   // --- 9. MANEJADORES DE EVENTOS ---
@@ -2330,10 +2335,406 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.readAsText(file);
   });
 
-  // --- 11. INICIALIZACIÓN ---
+  // --- 11. SISTEMA TEMPORAL (4ª DIMENSIÓN) ---
+
+  // Estado del sistema temporal
+  let temporalState = {
+    currentYear: 2030,
+    minYear: 1950,
+    maxYear: 2030,
+    isPlaying: false,
+    animationInterval: null,
+    showFutureConcepts: true,
+    animationSpeed: 200, // milisegundos por año
+  };
+
+  // Elementos del DOM para el sistema temporal
+  const timelineSlider = document.getElementById("timeline-slider");
+  const currentYearDisplay = document.getElementById("current-year-display");
+  const playBtn = document.getElementById("play-btn");
+  const pauseBtn = document.getElementById("pause-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const showFutureCheckbox = document.getElementById("show-future-checkbox");
+  const toggleTimelineBtn = document.getElementById("toggle-timeline-btn");
+  const timelineContainer = document.getElementById("timeline-container");
+
+  /**
+   * Determina si un concepto debe ser visible en el año actual
+   */
+  function isConceptVisibleInYear(concept, year, showFuture) {
+    const start = concept.temporal_start;
+    const end = concept.temporal_end;
+
+    // Si no tiene información temporal, siempre es visible
+    if (!start && !end) {
+      return true;
+    }
+
+    // Si solo tiene inicio
+    if (start && !end) {
+      if (showFuture) {
+        return year >= start;
+      } else {
+        return year >= start && year <= temporalState.maxYear;
+      }
+    }
+
+    // Si solo tiene fin
+    if (!start && end) {
+      return year <= end;
+    }
+
+    // Si tiene ambos
+    return year >= start && year <= end;
+  }
+
+  /**
+   * Determina si una relación debe ser visible en el año actual
+   */
+  function isRelationshipVisibleInYear(relationship, year, showFuture) {
+    const start = relationship.temporal_start;
+    const end = relationship.temporal_end;
+
+    // Si no tiene información temporal, siempre es visible
+    if (!start && !end) {
+      return true;
+    }
+
+    // Si solo tiene inicio
+    if (start && !end) {
+      if (showFuture) {
+        return year >= start;
+      } else {
+        return year >= start && year <= temporalState.maxYear;
+      }
+    }
+
+    // Si solo tiene fin
+    if (!start && end) {
+      return year <= end;
+    }
+
+    // Si tiene ambos
+    return year >= start && year <= end;
+  }
+
+  /**
+   * Calcula la opacidad basada en la relevancia temporal
+   */
+  function getTemporalOpacity(item) {
+    if (
+      item.temporal_relevance !== null &&
+      item.temporal_relevance !== undefined
+    ) {
+      return 0.3 + item.temporal_relevance * 0.7;
+    }
+    return 1.0;
+  }
+
+  /**
+   * Actualiza la visualización del grafo basándose en el año actual
+   */
+  function updateGraphByYear(year, animate = true) {
+    const showFuture = temporalState.showFutureConcepts;
+
+    if (!node || !link) return;
+
+    // Filtrar y actualizar nodos
+    node
+      .transition()
+      .duration(animate ? 500 : 0)
+      .style("opacity", function (d) {
+        const visible = isConceptVisibleInYear(d.fullConcept, year, showFuture);
+        if (!visible) return 0;
+        return getTemporalOpacity(d.fullConcept);
+      })
+      .attr("pointer-events", function (d) {
+        const visible = isConceptVisibleInYear(d.fullConcept, year, showFuture);
+        return visible ? "all" : "none";
+      });
+
+    // Efecto de "aparición" para nodos nuevos
+    node.each(function (d) {
+      const isVisible = isConceptVisibleInYear(d.fullConcept, year, showFuture);
+      const startYear = d.fullConcept.temporal_start;
+
+      if (isVisible && startYear === year && animate) {
+        d3.select(this)
+          .select("circle")
+          .transition()
+          .duration(800)
+          .attr("r", 10)
+          .ease(d3.easeBounceOut)
+          .on("start", function () {
+            d3.select(this).attr("r", 0);
+          });
+      }
+    });
+
+    // Filtrar y actualizar relaciones
+    link
+      .transition()
+      .duration(animate ? 500 : 0)
+      .style("opacity", function (d) {
+        // Verificar que ambos nodos de la relación sean visibles
+        const sourceConcept = state.concepts.find(
+          (c) => c.id === d.source_concept_id || c.id === d.source.id
+        );
+        const targetConcept = state.concepts.find(
+          (c) => c.id === d.target_concept_id || c.id === d.target.id
+        );
+
+        if (!sourceConcept || !targetConcept) return 0;
+
+        const sourceVisible = isConceptVisibleInYear(
+          sourceConcept,
+          year,
+          showFuture
+        );
+        const targetVisible = isConceptVisibleInYear(
+          targetConcept,
+          year,
+          showFuture
+        );
+        const relationVisible = isRelationshipVisibleInYear(
+          d,
+          year,
+          showFuture
+        );
+
+        if (!sourceVisible || !targetVisible || !relationVisible) return 0;
+
+        return getTemporalOpacity(d);
+      })
+      .attr("pointer-events", function (d) {
+        const sourceConcept = state.concepts.find(
+          (c) => c.id === d.source_concept_id || c.id === d.source.id
+        );
+        const targetConcept = state.concepts.find(
+          (c) => c.id === d.target_concept_id || c.id === d.target.id
+        );
+
+        if (!sourceConcept || !targetConcept) return "none";
+
+        const sourceVisible = isConceptVisibleInYear(
+          sourceConcept,
+          year,
+          showFuture
+        );
+        const targetVisible = isConceptVisibleInYear(
+          targetConcept,
+          year,
+          showFuture
+        );
+        const relationVisible = isRelationshipVisibleInYear(
+          d,
+          year,
+          showFuture
+        );
+
+        return sourceVisible && targetVisible && relationVisible
+          ? "all"
+          : "none";
+      });
+  }
+
+  /**
+   * Actualiza el display del año actual
+   */
+  function updateYearDisplay(year) {
+    if (!currentYearDisplay) return;
+    currentYearDisplay.textContent = year;
+    temporalState.currentYear = year;
+  }
+
+  /**
+   * Maneja el cambio del slider temporal
+   */
+  function handleTimelineChange(event) {
+    const year = parseInt(event.target.value);
+    updateYearDisplay(year);
+    updateGraphByYear(year, false);
+  }
+
+  /**
+   * Inicia la animación temporal
+   */
+  function startTemporalAnimation() {
+    if (temporalState.isPlaying) return;
+
+    temporalState.isPlaying = true;
+    playBtn.classList.add("hidden");
+    pauseBtn.classList.remove("hidden");
+
+    // Si ya está al final, reiniciar
+    if (temporalState.currentYear >= temporalState.maxYear) {
+      temporalState.currentYear = temporalState.minYear;
+      timelineSlider.value = temporalState.currentYear;
+    }
+
+    temporalState.animationInterval = setInterval(() => {
+      temporalState.currentYear++;
+
+      if (temporalState.currentYear > temporalState.maxYear) {
+        stopTemporalAnimation();
+        return;
+      }
+
+      timelineSlider.value = temporalState.currentYear;
+      updateYearDisplay(temporalState.currentYear);
+      updateGraphByYear(temporalState.currentYear, true);
+    }, temporalState.animationSpeed);
+  }
+
+  /**
+   * Detiene la animación temporal
+   */
+  function stopTemporalAnimation() {
+    temporalState.isPlaying = false;
+    playBtn.classList.remove("hidden");
+    pauseBtn.classList.add("hidden");
+
+    if (temporalState.animationInterval) {
+      clearInterval(temporalState.animationInterval);
+      temporalState.animationInterval = null;
+    }
+  }
+
+  /**
+   * Resetea la línea temporal
+   */
+  function resetTimeline() {
+    stopTemporalAnimation();
+    temporalState.currentYear = temporalState.maxYear;
+    timelineSlider.value = temporalState.maxYear;
+    updateYearDisplay(temporalState.maxYear);
+    updateGraphByYear(temporalState.maxYear, true);
+  }
+
+  /**
+   * Toggle para mostrar/ocultar conceptos futuros
+   */
+  function handleShowFutureToggle(event) {
+    temporalState.showFutureConcepts = event.target.checked;
+    updateGraphByYear(temporalState.currentYear, true);
+  }
+
+  /**
+   * Toggle para expandir/colapsar el timeline
+   */
+  function toggleTimelinePanel() {
+    timelineContainer.classList.toggle("timeline-expanded");
+    timelineContainer.classList.toggle("timeline-collapsed");
+
+    if (timelineContainer.classList.contains("timeline-collapsed")) {
+      toggleTimelineBtn.textContent = "▲";
+    } else {
+      toggleTimelineBtn.textContent = "▼";
+    }
+  }
+
+  /**
+   * Calcula el rango temporal de los datos actuales
+   */
+  function calculateTemporalRange() {
+    // Verificar que los elementos del DOM existan
+    if (!timelineSlider || !currentYearDisplay) return;
+
+    let minYear = 1950;
+    let maxYear = 2030;
+
+    state.concepts.forEach((concept) => {
+      if (concept.temporal_start && concept.temporal_start < minYear) {
+        minYear = concept.temporal_start;
+      }
+      if (concept.temporal_end && concept.temporal_end > maxYear) {
+        maxYear = concept.temporal_end;
+      }
+    });
+
+    state.relationships.forEach((rel) => {
+      if (rel.temporal_start && rel.temporal_start < minYear) {
+        minYear = rel.temporal_start;
+      }
+      if (rel.temporal_end && rel.temporal_end > maxYear) {
+        maxYear = rel.temporal_end;
+      }
+    });
+
+    // Redondear a décadas
+    minYear = Math.floor(minYear / 10) * 10;
+    maxYear = Math.ceil(maxYear / 10) * 10;
+
+    temporalState.minYear = minYear;
+    temporalState.maxYear = maxYear;
+    temporalState.currentYear = maxYear;
+
+    // Actualizar el slider
+    timelineSlider.min = minYear;
+    timelineSlider.max = maxYear;
+    timelineSlider.value = maxYear;
+
+    // Actualizar las etiquetas
+    updateTimelineLabels();
+    updateYearDisplay(maxYear);
+  }
+
+  /**
+   * Actualiza las etiquetas de la línea temporal
+   */
+  function updateTimelineLabels() {
+    const labelsContainer = document.getElementById("timeline-labels");
+    if (!labelsContainer) return;
+
+    const range = temporalState.maxYear - temporalState.minYear;
+    const step = Math.ceil(range / 4);
+
+    labelsContainer.innerHTML = "";
+    for (let i = 0; i < 5; i++) {
+      const year = temporalState.minYear + step * i;
+      const span = document.createElement("span");
+      span.textContent = year;
+      labelsContainer.appendChild(span);
+    }
+  }
+
+  /**
+   * Inicializa el sistema temporal
+   */
+  function initializeTemporalSystem() {
+    // Verificar que todos los elementos existan
+    if (
+      !timelineSlider ||
+      !playBtn ||
+      !pauseBtn ||
+      !resetBtn ||
+      !showFutureCheckbox ||
+      !toggleTimelineBtn ||
+      !currentYearDisplay
+    ) {
+      console.warn(
+        "Elementos del timeline no encontrados, sistema temporal no inicializado"
+      );
+      return;
+    }
+
+    // Event listeners
+    timelineSlider.addEventListener("input", handleTimelineChange);
+    playBtn.addEventListener("click", startTemporalAnimation);
+    pauseBtn.addEventListener("click", stopTemporalAnimation);
+    resetBtn.addEventListener("click", resetTimeline);
+    showFutureCheckbox.addEventListener("change", handleShowFutureToggle);
+    toggleTimelineBtn.addEventListener("click", toggleTimelinePanel);
+
+    // Calcular rango temporal inicial
+    calculateTemporalRange();
+  }
+
+  // --- 12. INICIALIZACIÓN ---
   async function initialize() {
     await fetchUserThesauruses();
     clearCategoryForm();
+    initializeTemporalSystem();
   }
 
   checkUserSession();
