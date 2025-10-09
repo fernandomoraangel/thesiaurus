@@ -57,6 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const temporalStartInput = document.getElementById("temporal-start");
   const temporalEndInput = document.getElementById("temporal-end");
   const temporalRelevanceInput = document.getElementById("temporal-relevance");
+  const citationsInput = document.getElementById("citations");
+  const worksInput = document.getElementById("works");
+  const mediaInput = document.getElementById("media");
 
   // Elementos del Modal
   const conceptModal = document.getElementById("concept-modal");
@@ -1155,7 +1158,7 @@ document.addEventListener("DOMContentLoaded", () => {
         supabase
           .from("concepts")
           .select(
-            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance, fixed_x, fixed_y"
+            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance, fixed_x, fixed_y, citations, works, media"
           )
           .eq("thesaurus_id", state.activeThesaurusId),
         supabase
@@ -1280,6 +1283,20 @@ document.addEventListener("DOMContentLoaded", () => {
       ? parseFloat(temporalRelevanceInput.value)
       : null;
 
+    // Procesar los arrays de citations, works y media
+    const citations = citationsInput.value
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const works = worksInput.value
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const media = mediaInput.value
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     try {
       let currentConceptId = conceptId;
 
@@ -1291,6 +1308,9 @@ document.addEventListener("DOMContentLoaded", () => {
             temporal_start: temporalStart,
             temporal_end: temporalEnd,
             temporal_relevance: temporalRelevance,
+            citations: citations,
+            works: works,
+            media: media,
           })
           .select("id")
           .single();
@@ -1304,6 +1324,9 @@ document.addEventListener("DOMContentLoaded", () => {
             temporal_start: temporalStart,
             temporal_end: temporalEnd,
             temporal_relevance: temporalRelevance,
+            citations: citations,
+            works: works,
+            media: media,
           })
           .eq("id", currentConceptId);
         if (error) throw error;
@@ -2178,6 +2201,13 @@ document.addEventListener("DOMContentLoaded", () => {
     temporalEndInput.value = concept.temporal_end || "";
     temporalRelevanceInput.value = concept.temporal_relevance || "";
 
+    // Cargar campos de citations, works y media
+    citationsInput.value = concept.citations
+      ? concept.citations.join("\n")
+      : "";
+    worksInput.value = concept.works ? concept.works.join("\n") : "";
+    mediaInput.value = concept.media ? concept.media.join("\n") : "";
+
     populateConceptDropdowns(concept.id);
 
     const broaderRel = state.relationships.find(
@@ -2243,6 +2273,36 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((r) => `<li>${getConceptName(r.target_concept_id)}</li>`)
       .join("");
 
+    // Funciones auxiliares para obtener arrays
+    const getCitations = () => {
+      if (concept.citations && concept.citations.length > 0) {
+        return concept.citations.map((c) => `<li>${c}</li>`).join("");
+      }
+      return "<li>Ninguna</li>";
+    };
+
+    const getWorks = () => {
+      if (concept.works && concept.works.length > 0) {
+        return concept.works.map((w) => `<li>${w}</li>`).join("");
+      }
+      return "<li>Ninguna</li>";
+    };
+
+    const getMedia = () => {
+      if (concept.media && concept.media.length > 0) {
+        return concept.media
+          .map((m) => {
+            // Si parece una URL, hacer un enlace
+            if (m.startsWith("http://") || m.startsWith("https://")) {
+              return `<li><a href="${m}" target="_blank">${m}</a></li>`;
+            }
+            return `<li>${m}</li>`;
+          })
+          .join("");
+      }
+      return "<li>Ninguno</li>";
+    };
+
     modalTitle.textContent = getLabel("prefLabel");
     modalBody.innerHTML = `
             <div class="modal-section">
@@ -2274,6 +2334,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 <h4>Términos Relacionados:</h4>
                 <ul>${relatedRels || "<li>Ninguno</li>"}</ul>
+            </div>
+            <div class="modal-section">
+                <h4>Citas</h4>
+                <ul>${getCitations()}</ul>
+            </div>
+            <div class="modal-section">
+                <h4>Obras Relacionadas</h4>
+                <ul>${getWorks()}</ul>
+            </div>
+            <div class="modal-section">
+                <h4>Medios/URLs</h4>
+                <ul>${getMedia()}</ul>
             </div>
         `;
 

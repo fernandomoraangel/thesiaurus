@@ -167,6 +167,21 @@
                             placeholder="0.0 - 1.0 (ej. 0.8)">
                     </fieldset>
 
+                    <!-- Referencias y Medios -->
+                    <fieldset>
+                        <legend>Referencias y Medios</legend>
+                        <label for="citations">Citas (una por línea):</label>
+                        <textarea id="citations" rows="3"
+                            placeholder="Ejemplo: Autor, A. (2020). Título del libro. Editorial."></textarea>
+
+                        <label for="works">Obras Relacionadas (una por línea):</label>
+                        <textarea id="works" rows="3"
+                            placeholder="Ejemplo: Nombre de la obra o publicación relacionada"></textarea>
+
+                        <label for="media">Medios/URLs (una por línea):</label>
+                        <textarea id="media" rows="3" placeholder="Ejemplo: https://ejemplo.com/imagen.jpg"></textarea>
+                    </fieldset>
+
                     <div class="button-group">
                         <button type="submit" id="save-concept-btn">Guardar Concepto</button>
                         <button type="button" id="delete-concept-btn" class="danger" disabled>Eliminar Concepto</button>
