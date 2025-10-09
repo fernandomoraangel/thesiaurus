@@ -1256,3 +1256,158 @@ button.danger:hover {
   color: var(--secondary-color);
   font-size: 14px;
 }
+
+/* --- ESTILOS PARA MEDIOS EMBEBIDOS --- */
+.media-container {
+  margin: 15px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f9fafb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.media-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  max-height: 500px;
+  object-fit: contain;
+  background: white;
+}
+
+.media-image img:hover {
+  transform: scale(1.02);
+}
+
+.media-video iframe,
+.media-video video {
+  width: 100%;
+  height: 400px;
+  display: block;
+  background: black;
+}
+
+.media-video video {
+  height: auto;
+  max-height: 400px;
+}
+
+.media-audio {
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+}
+
+.media-audio audio {
+  width: 100%;
+  display: block;
+  margin: 0 auto;
+  outline: none;
+}
+
+.media-audio iframe {
+  width: 100%;
+  border: none;
+  display: block;
+}
+
+.media-caption {
+  padding: 10px 15px;
+  background: white;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--secondary-color);
+  text-align: center;
+}
+
+.media-caption a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.media-caption a:hover {
+  color: #1a365d;
+  text-decoration: underline;
+}
+
+.media-link-container {
+  padding: 15px;
+  background: white;
+  text-align: center;
+}
+
+.media-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+  word-break: break-all;
+  transition: color 0.2s;
+  display: inline-block;
+  padding: 8px 15px;
+  border-radius: 4px;
+  background: #f0f4f8;
+}
+
+.media-link:hover {
+  color: #1a365d;
+  text-decoration: underline;
+  background: #e2e8f0;
+}
+
+.media-text {
+  padding: 15px;
+  background: white;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+/* Galería de medios en el modal */
+#modal-body .modal-section .media-container:first-child {
+  margin-top: 0;
+}
+
+#modal-body .modal-section .media-container:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive para medios */
+@media (max-width: 768px) {
+  .media-video iframe,
+  .media-video video {
+    height: 250px;
+  }
+
+  .media-image img {
+    max-height: 300px;
+  }
+}
+
+/* Loading para medios */
+.media-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--secondary-color);
+  font-size: 14px;
+}
+
+/* Error para medios */
+.media-error {
+  padding: 20px;
+  background: #fee;
+  border: 1px solid #fcc;
+  color: #c00;
+  text-align: center;
+  border-radius: 8px;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Estilo especial para cuando no hay medios */
+#modal-body .modal-section p {
+  color: var(--secondary-color);
+  font-style: italic;
+}

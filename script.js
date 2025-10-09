@@ -2323,17 +2323,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const getMedia = () => {
       if (concept.media && concept.media.length > 0) {
-        return concept.media
+        const mediaElements = concept.media
           .map((m) => {
-            // Si parece una URL, hacer un enlace
-            if (m.startsWith("http://") || m.startsWith("https://")) {
-              return `<li><a href="${m}" target="_blank">${m}</a></li>`;
-            }
-            return `<li>${m}</li>`;
+            const mediaType = detectMediaType(m);
+            return renderMediaElement(m, mediaType);
           })
           .join("");
+
+        // Si no hay elementos de medios embebidos, mostrar mensaje
+        if (!mediaElements || mediaElements.trim() === "") {
+          return "<p>No hay recursos multimedia disponibles</p>";
+        }
+
+        return mediaElements;
       }
-      return "<li>Ninguno</li>";
+      return "<p>No hay recursos multimedia disponibles</p>";
     };
 
     modalTitle.textContent = getLabel("prefLabel");
@@ -2377,12 +2381,211 @@ document.addEventListener("DOMContentLoaded", () => {
                 <ul>${getWorks()}</ul>
             </div>
             <div class="modal-section">
-                <h4>Medios/URLs</h4>
-                <ul>${getMedia()}</ul>
+                <h4>Recursos Multimedia</h4>
+                ${getMedia()}
             </div>
         `;
 
     conceptModal.classList.remove("hidden");
+  }
+
+  // --- FUNCIONES AUXILIARES PARA MEDIOS EMBEBIDOS ---
+  function detectMediaType(url) {
+    const urlLower = url.toLowerCase();
+
+    // Videos de YouTube
+    if (urlLower.includes("youtube.com") || urlLower.includes("youtu.be")) {
+      return "youtube";
+    }
+
+    // Videos de Vimeo
+    if (urlLower.includes("vimeo.com")) {
+      return "vimeo";
+    }
+
+    // Audio de SoundCloud
+    if (urlLower.includes("soundcloud.com")) {
+      return "soundcloud";
+    }
+
+    // Audio de Spotify
+    if (urlLower.includes("spotify.com")) {
+      return "spotify";
+    }
+
+    // Imágenes
+    if (urlLower.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/)) {
+      return "image";
+    }
+
+    // Videos
+    if (urlLower.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/)) {
+      return "video";
+    }
+
+    // Audio
+    if (urlLower.match(/\.(mp3|wav|ogg|m4a|aac|flac|wma)$/)) {
+      return "audio";
+    }
+
+    // URLs genéricas
+    if (urlLower.startsWith("http://") || urlLower.startsWith("https://")) {
+      return "link";
+    }
+
+    return "text";
+  }
+
+  function getYouTubeVideoId(url) {
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? match[2] : null;
+  }
+
+  function getVimeoVideoId(url) {
+    const regExp = /vimeo.com\/(\d+)/;
+    const match = url.match(regExp);
+    return match ? match[1] : null;
+  }
+
+  function getSpotifyEmbedUrl(url) {
+    // Convertir URL de Spotify a formato embed
+    // Ejemplo: https://open.spotify.com/track/... -> https://open.spotify.com/embed/track/...
+    const trackMatch = url.match(
+      /spotify\.com\/(track|album|playlist|episode)\/([a-zA-Z0-9]+)/
+    );
+    if (trackMatch) {
+      return `https://open.spotify.com/embed/${trackMatch[1]}/${trackMatch[2]}`;
+    }
+    return null;
+  }
+
+  function renderMediaElement(url, mediaType) {
+    switch (mediaType) {
+      case "youtube":
+        const youtubeId = getYouTubeVideoId(url);
+        if (youtubeId) {
+          return `
+            <div class="media-container media-video">
+              <iframe 
+                src="https://www.youtube.com/embed/${youtubeId}" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen
+                loading="lazy">
+              </iframe>
+              <div class="media-caption">
+                <a href="${url}" target="_blank" title="Ver en YouTube">🎥 Ver en YouTube</a>
+              </div>
+            </div>`;
+        }
+        break;
+
+      case "vimeo":
+        const vimeoId = getVimeoVideoId(url);
+        if (vimeoId) {
+          return `
+            <div class="media-container media-video">
+              <iframe 
+                src="https://player.vimeo.com/video/${vimeoId}" 
+                frameborder="0" 
+                allow="autoplay; fullscreen; picture-in-picture" 
+                allowfullscreen
+                loading="lazy">
+              </iframe>
+              <div class="media-caption">
+                <a href="${url}" target="_blank" title="Ver en Vimeo">🎥 Ver en Vimeo</a>
+              </div>
+            </div>`;
+        }
+        break;
+
+      case "soundcloud":
+        return `
+          <div class="media-container media-audio">
+            <iframe 
+              width="100%" 
+              height="166" 
+              scrolling="no" 
+              frameborder="no" 
+              allow="autoplay"
+              src="https://w.soundcloud.com/player/?url=${encodeURIComponent(
+                url
+              )}&color=%232c5282&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true">
+            </iframe>
+            <div class="media-caption">
+              <a href="${url}" target="_blank" title="Escuchar en SoundCloud">🎵 Escuchar en SoundCloud</a>
+            </div>
+          </div>`;
+
+      case "spotify":
+        const spotifyEmbedUrl = getSpotifyEmbedUrl(url);
+        if (spotifyEmbedUrl) {
+          return `
+            <div class="media-container media-audio">
+              <iframe 
+                src="${spotifyEmbedUrl}" 
+                width="100%" 
+                height="152" 
+                frameborder="0" 
+                allowtransparency="true" 
+                allow="encrypted-media">
+              </iframe>
+              <div class="media-caption">
+                <a href="${url}" target="_blank" title="Escuchar en Spotify">🎵 Escuchar en Spotify</a>
+              </div>
+            </div>`;
+        }
+        break;
+
+      case "image":
+        return `
+          <div class="media-container media-image">
+            <img src="${url}" alt="Imagen relacionada" loading="lazy" onclick="window.open('${url}', '_blank')" onerror="this.parentElement.innerHTML='<div class=&quot;media-error&quot;>⚠️ No se pudo cargar la imagen</div>'">
+            <div class="media-caption">
+              <a href="${url}" target="_blank" title="Abrir en nueva pestaña">�️ Ver imagen completa</a>
+            </div>
+          </div>`;
+
+      case "video":
+        return `
+          <div class="media-container media-video">
+            <video controls preload="metadata">
+              <source src="${url}">
+              Tu navegador no soporta el elemento de video.
+            </video>
+            <div class="media-caption">
+              <a href="${url}" target="_blank">� Descargar video</a>
+            </div>
+          </div>`;
+
+      case "audio":
+        return `
+          <div class="media-container media-audio">
+            <audio controls preload="metadata">
+              <source src="${url}">
+              Tu navegador no soporta el elemento de audio.
+            </audio>
+            <div class="media-caption">
+              <a href="${url}" target="_blank">🎧 Descargar audio</a>
+            </div>
+          </div>`;
+
+      case "link":
+        return `
+          <div class="media-container media-link-container">
+            <a href="${url}" target="_blank" class="media-link">
+              🔗 ${url}
+            </a>
+          </div>`;
+
+      default:
+        return `
+          <div class="media-container media-text">
+            <p>${url}</p>
+          </div>`;
+    }
   }
 
   function clearForm() {
