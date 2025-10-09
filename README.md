@@ -24,6 +24,15 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
   - **Formateo Automático:** Las citas se formatean según el estilo elegido (APA, MLA, Chicago, Harvard).
   - **Selección Múltiple:** Importa múltiples citas a la vez.
   - **Configuración Persistente:** Tu API Key y preferencias se guardan localmente.
+- **👓 Sistema de Vistas Analíticas:** ⭐ **NUEVO**
+  - **Vistas Predefinidas:** 5 perspectivas especializadas listas para usar (Tecnológica, Teórico-Crítica, Estética, Temporal, Relacional).
+  - **Vistas Personalizadas:** Crea vistas ilimitadas con filtros personalizados según tus necesidades.
+  - **Filtros Multidimensionales:** Combina filtros por categorías, rango temporal, conexiones y tipos de relación.
+  - **Activación Múltiple:** Activa varias vistas simultáneamente para análisis complejos.
+  - **Visualización Diferencial:** Resaltado visual de elementos filtrados con animaciones suaves.
+  - **Persistencia de Configuración:** Tus vistas activas se guardan automáticamente por tesauro.
+  - **Gestión Completa:** Crea, edita, renombra y elimina vistas personalizadas fácilmente.
+  - **Estadísticas en Tiempo Real:** Contador de conceptos visibles vs totales según filtros activos.
 - **Visualización Interactiva:** Un grafo dinámico e interactivo de la estructura del tesauro impulsado por D3.js.
 - **Búsqueda:** Encuentra y resalta conceptos rápidamente dentro de la visualización.
 - **Importar/Exportar:**
@@ -50,16 +59,21 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
 ├── .gitignore
 ├── auth.js
 ├── final_migration.sql
+├── add_analytical_views.sql         # 🆕 Migración para vistas analíticas
+├── analytical_views_queries.sql     # 🆕 Queries de prueba y verificación
 ├── index.html
 ├── main.html
 ├── README.md
 ├── register.html
 ├── script.js
-├── zotero-integration.js           # 🆕 Módulo de integración con Zotero
+├── zotero-integration.js           # Módulo de integración con Zotero
 ├── style.css
-├── TEMPORAL_DIMENSION_GUIDE.md    # 📘 Guía completa de la dimensión temporal
-├── ZOTERO_INTEGRATION.md          # 📚 Guía de integración con Zotero
-└── IMPLEMENTATION_SUMMARY.md      # 📋 Resumen técnico de implementación
+├── TEMPORAL_DIMENSION_GUIDE.md     # 📘 Guía completa de la dimensión temporal
+├── ZOTERO_INTEGRATION.md           # 📚 Guía de integración con Zotero
+├── ANALYTICAL_VIEWS_GUIDE.md       # 👓 Guía completa de vistas analíticas
+├── ANALYTICAL_VIEWS_QUICKSTART.md  # 🚀 Guía rápida de implementación
+├── ANALYTICAL_VIEWS_SUMMARY.md     # 📋 Resumen de implementación
+└── IMPLEMENTATION_SUMMARY.md       # 📋 Resumen técnico de implementación
 ```
 
 - **`index.html`**: La página de inicio de sesión.
@@ -68,15 +82,20 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
 - **`style.css`**: Contiene todos los estilos para la aplicación.
 - **`auth.js`**: Maneja la autenticación de usuarios (inicio de sesión y registro) con Supabase.
 - **`script.js`**: La lógica principal de la aplicación para la gestión de tesauros, edición de conceptos y visualización con D3.js.
-- **`zotero-integration.js`**: 🆕 Módulo para la integración con la API de Zotero.
+- **`zotero-integration.js`**: Módulo para la integración con la API de Zotero.
 - **`final_migration.sql`**: El script SQL para configurar el esquema de la base de datos en Supabase.
+- **`add_analytical_views.sql`**: 🆕 Script SQL para crear el sistema de vistas analíticas.
+- **`analytical_views_queries.sql`**: 🆕 Queries SQL útiles para testing y diagnóstico.
 - **`TEMPORAL_DIMENSION_GUIDE.md`**: 📘 Guía detallada para usar la dimensión temporal.
 - **`ZOTERO_INTEGRATION.md`**: 📚 Guía completa para configurar y usar la integración con Zotero.
+- **`ANALYTICAL_VIEWS_GUIDE.md`**: 👓 Documentación completa del sistema de vistas analíticas.
+- **`ANALYTICAL_VIEWS_QUICKSTART.md`**: 🚀 Guía de inicio rápido para implementar vistas analíticas.
+- **`ANALYTICAL_VIEWS_SUMMARY.md`**: 📋 Resumen ejecutivo de la implementación de vistas.
 - **`IMPLEMENTATION_SUMMARY.md`**: 📋 Documentación técnica de la implementación temporal.
 
 ## Esquema de la Base de Datos
 
-La base de datos está estructurada para seguir el modelo SKOS con extensiones temporales:
+La base de datos está estructurada para seguir el modelo SKOS con extensiones temporales y de análisis:
 
 - **`thesauruses`**: Almacena los metadatos de cada tesauro.
 - **`concepts`**: Representa los conceptos individuales dentro de un tesauro.
@@ -87,8 +106,13 @@ La base de datos está estructurada para seguir el modelo SKOS con extensiones t
 - **`relationships`**: Define las relaciones `broader` (más amplio), `narrower` (más específico) y `related` (relacionado) entre conceptos.
   - 🕰️ Incluye campos temporales: `temporal_start`, `temporal_end`, `temporal_relevance`
 - **`categories`**: Organiza conceptos en categorías con colores personalizables.
+- **`analytical_views`**: 👓 Almacena vistas analíticas personalizadas y predefinidas.
+  - Incluye filtros en formato JSON para análisis multidimensional
+  - Configuración de colores y descripciones
+  - Marca de vistas predefinidas vs personalizadas
+- **`active_analytical_views`**: 👓 Registra qué vistas están activas para cada usuario/tesauro.
 
-La Seguridad a Nivel de Fila (RLS) está habilitada en Supabase para asegurar que los usuarios solo puedan acceder y gestionar sus propios tesauros.
+La Seguridad a Nivel de Fila (RLS) está habilitada en Supabase para asegurar que los usuarios solo puedan acceder y gestionar sus propios tesauros y vistas.
 
 ## Cómo Empezar
 
@@ -101,6 +125,7 @@ Para ejecutar este proyecto localmente, necesitarás una cuenta de Supabase.
 2.  **Configura Supabase:**
     - Crea un nuevo proyecto en Supabase.
     - En el Editor SQL, ejecuta el contenido de `final_migration.sql` para crear las tablas y políticas necesarias.
+    - Ejecuta `add_analytical_views.sql` para habilitar el sistema de vistas analíticas. 👓
 3.  **Configura la aplicación:**
     - En `auth.js` y `script.js`, reemplaza la URL y la clave anónima (anon key) de Supabase con las credenciales de tu propio proyecto:
       ```javascript
@@ -122,7 +147,8 @@ Para ejecutar este proyecto localmente, necesitarás una cuenta de Supabase.
 8.  **Explora en el Tiempo:** 🕰️ Usa el slider temporal en la parte inferior para navegar por la historia de tu tesauro.
 9.  **Anima la Evolución:** 🕰️ Presiona el botón Play para ver cómo evoluciona tu red de conceptos año por año.
 10. **Importa Citas desde Zotero:** 📚 Configura tu API Key de Zotero y añade citas bibliográficas a tus conceptos.
-11. **Exporta:** Guarda tu trabajo exportándolo a JSON o generando un resumen en PDF.
+11. **Aplica Vistas Analíticas:** 👓 Activa vistas predefinidas o crea las tuyas para analizar tu tesauro desde diferentes perspectivas.
+12. **Exporta:** Guarda tu trabajo exportándolo a JSON o generando un resumen en PDF.
 
 ### 🕰️ Guía de la Dimensión Temporal
 
@@ -142,6 +168,20 @@ Para configurar y usar la integración con Zotero, consulta la [Guía de Integra
 - Formatos de cita soportados
 - Solución de problemas comunes
 - Mejores prácticas de seguridad
+
+### 👓 Guía del Sistema de Vistas Analíticas
+
+Para dominar el sistema de vistas analíticas, consulta estas guías:
+- **[Guía Completa](ANALYTICAL_VIEWS_GUIDE.md)**: Documentación exhaustiva de todas las funcionalidades
+- **[Guía Rápida](ANALYTICAL_VIEWS_QUICKSTART.md)**: Implementación y primeros pasos
+- **[Resumen](ANALYTICAL_VIEWS_SUMMARY.md)**: Visión general de la implementación
+
+Aprende a:
+- Usar las 5 vistas predefinidas (Tecnológica, Teórico-Crítica, Estética, Temporal, Relacional)
+- Crear vistas personalizadas con filtros avanzados
+- Combinar múltiples vistas para análisis complejos
+- Gestionar y persistir tus configuraciones
+- Aprovechar los filtros por categorías, temporales y relacionales
 
 ## Licencia
 

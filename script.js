@@ -4182,7 +4182,944 @@ document.addEventListener("DOMContentLoaded", () => {
     await fetchUserThesauruses();
     clearCategoryForm();
     initializeTemporalSystem();
+    initializeAnalyticalViews();
   }
+
+  // --- 13. SISTEMA DE VISTAS ANALÍTICAS ---
+
+  // Elementos del DOM
+  const activeViewsList = document.getElementById("active-views-list");
+  const availableViewsList = document.getElementById("available-views-list");
+  const activeViewsEmpty = document.getElementById("active-views-empty");
+  const createViewBtn = document.getElementById("create-view-btn");
+  const manageViewsBtn = document.getElementById("manage-views-btn");
+  const viewStatsDiv = document.getElementById("view-stats");
+  const visibleConceptsCount = document.getElementById(
+    "visible-concepts-count"
+  );
+  const totalConceptsCount = document.getElementById("total-concepts-count");
+
+  // Modal de crear/editar vista
+  const analyticalViewModal = document.getElementById("analytical-view-modal");
+  const analyticalViewModalTitle = document.getElementById(
+    "analytical-view-modal-title"
+  );
+  const analyticalViewModalCloseBtn = document.getElementById(
+    "analytical-view-modal-close-btn"
+  );
+  const analyticalViewForm = document.getElementById("analytical-view-form");
+  const viewIdInput = document.getElementById("view-id");
+  const viewNameInput = document.getElementById("view-name");
+  const viewDescriptionInput = document.getElementById("view-description");
+  const viewColorInput = document.getElementById("view-color");
+  const viewCategoriesFilter = document.getElementById(
+    "view-categories-filter"
+  );
+  const viewAllCategoriesCheckbox = document.getElementById(
+    "view-all-categories"
+  );
+  const viewUseTemporalFilter = document.getElementById(
+    "view-use-temporal-filter"
+  );
+  const viewTemporalRange = document.getElementById("view-temporal-range");
+  const viewTemporalStart = document.getElementById("view-temporal-start");
+  const viewTemporalEnd = document.getElementById("view-temporal-end");
+  const viewUseConnectionFilter = document.getElementById(
+    "view-use-connection-filter"
+  );
+  const viewConnectionRange = document.getElementById("view-connection-range");
+  const viewMinConnections = document.getElementById("view-min-connections");
+  const viewMaxConnections = document.getElementById("view-max-connections");
+  const viewFilterBroader = document.getElementById("view-filter-broader");
+  const viewFilterRelated = document.getElementById("view-filter-related");
+  const cancelViewBtn = document.getElementById("cancel-view-btn");
+
+  // Modal de gestionar vistas
+  const manageViewsModal = document.getElementById("manage-views-modal");
+  const manageViewsModalCloseBtn = document.getElementById(
+    "manage-views-modal-close-btn"
+  );
+  const viewsManagementList = document.getElementById("views-management-list");
+
+  // Estado de vistas analíticas
+  let analyticalViews = {
+    available: [],
+    active: [],
+  };
+
+  /**
+   * Inicializar el sistema de vistas analíticas
+   */
+  async function initializeAnalyticalViews() {
+    if (!state.activeThesaurusId) return;
+
+    await fetchAnalyticalViews();
+    await fetchActiveViews();
+    createDefaultViewsIfNeeded();
+    renderAnalyticalViews();
+
+    // Event listeners
+    if (createViewBtn) {
+      createViewBtn.addEventListener("click", openCreateViewModal);
+    }
+
+    if (manageViewsBtn) {
+      manageViewsBtn.addEventListener("click", openManageViewsModal);
+    }
+
+    if (analyticalViewForm) {
+      analyticalViewForm.addEventListener("submit", saveAnalyticalView);
+    }
+
+    if (cancelViewBtn) {
+      cancelViewBtn.addEventListener("click", closeAnalyticalViewModal);
+    }
+
+    if (analyticalViewModalCloseBtn) {
+      analyticalViewModalCloseBtn.addEventListener(
+        "click",
+        closeAnalyticalViewModal
+      );
+    }
+
+    if (analyticalViewModal) {
+      analyticalViewModal.addEventListener("click", (e) => {
+        if (e.target === analyticalViewModal) {
+          closeAnalyticalViewModal();
+        }
+      });
+    }
+
+    if (manageViewsModalCloseBtn) {
+      manageViewsModalCloseBtn.addEventListener("click", closeManageViewsModal);
+    }
+
+    if (manageViewsModal) {
+      manageViewsModal.addEventListener("click", (e) => {
+        if (e.target === manageViewsModal) {
+          closeManageViewsModal();
+        }
+      });
+    }
+
+    // Toggle de filtros
+    if (viewUseTemporalFilter) {
+      viewUseTemporalFilter.addEventListener("change", (e) => {
+        viewTemporalRange.classList.toggle("hidden", !e.target.checked);
+      });
+    }
+
+    if (viewUseConnectionFilter) {
+      viewUseConnectionFilter.addEventListener("change", (e) => {
+        viewConnectionRange.classList.toggle("hidden", !e.target.checked);
+      });
+    }
+
+    if (viewAllCategoriesCheckbox) {
+      viewAllCategoriesCheckbox.addEventListener("change", (e) => {
+        const checkboxes = viewCategoriesFilter.querySelectorAll(
+          'input[type="checkbox"]'
+        );
+        checkboxes.forEach((cb) => (cb.disabled = e.target.checked));
+      });
+    }
+  }
+
+  /**
+   * Obtener vistas analíticas disponibles
+   */
+  async function fetchAnalyticalViews() {
+    if (!state.activeThesaurusId) return;
+
+    const { data, error } = await supabase
+      .from("analytical_views")
+      .select("*")
+      .eq("thesaurus_id", state.activeThesaurusId)
+      .eq("user_id", state.user.id);
+
+    if (error) {
+      console.error("Error fetching analytical views:", error);
+      return;
+    }
+
+    analyticalViews.available = data || [];
+  }
+
+  /**
+   * Obtener vistas activas
+   */
+  async function fetchActiveViews() {
+    if (!state.activeThesaurusId) return;
+
+    const { data, error } = await supabase
+      .from("active_analytical_views")
+      .select("view_id")
+      .eq("thesaurus_id", state.activeThesaurusId)
+      .eq("user_id", state.user.id);
+
+    if (error) {
+      console.error("Error fetching active views:", error);
+      return;
+    }
+
+    analyticalViews.active = (data || []).map((item) => item.view_id);
+  }
+
+  /**
+   * Crear vistas por defecto si no existen
+   */
+  async function createDefaultViewsIfNeeded() {
+    const defaultViews = [
+      {
+        name: "Vista Tecnológica",
+        description: "Conceptos y relaciones ligados a hitos tecnológicos",
+        color: "#3498db",
+        filters: {
+          keywords: [
+            "tecnología",
+            "digital",
+            "software",
+            "hardware",
+            "internet",
+            "web",
+          ],
+        },
+      },
+      {
+        name: "Vista Teórico-Crítica",
+        description: "Enfoque en teóricos, conceptos y debates",
+        color: "#9b59b6",
+        filters: {
+          keywords: ["teoría", "crítica", "filosofía", "pensamiento", "autor"],
+        },
+      },
+      {
+        name: "Vista Estética",
+        description: "Movimientos artísticos, obras y características formales",
+        color: "#e74c3c",
+        filters: {
+          keywords: [
+            "arte",
+            "estética",
+            "diseño",
+            "visual",
+            "movimiento",
+            "obra",
+          ],
+        },
+      },
+      {
+        name: "Vista Temporal",
+        description: "Enfoque en evolución histórica de conceptos",
+        color: "#f39c12",
+        filters: {
+          use_temporal: true,
+          temporal_range: [1950, new Date().getFullYear()],
+        },
+      },
+      {
+        name: "Vista Relacional",
+        description: "Análisis de densidad de conexiones",
+        color: "#1abc9c",
+        filters: {
+          min_connections: 3,
+        },
+      },
+    ];
+
+    for (const defaultView of defaultViews) {
+      const exists = analyticalViews.available.find(
+        (v) => v.name === defaultView.name
+      );
+      if (!exists) {
+        const { error } = await supabase.from("analytical_views").insert({
+          user_id: state.user.id,
+          thesaurus_id: state.activeThesaurusId,
+          name: defaultView.name,
+          description: defaultView.description,
+          color: defaultView.color,
+          filters: defaultView.filters,
+          is_default: true,
+        });
+
+        if (error) {
+          console.error("Error creating default view:", error);
+        }
+      }
+    }
+
+    // Recargar vistas después de crear las predeterminadas
+    await fetchAnalyticalViews();
+  }
+
+  /**
+   * Renderizar las vistas analíticas
+   */
+  function renderAnalyticalViews() {
+    renderActiveViews();
+    renderAvailableViews();
+    updateViewStats();
+  }
+
+  /**
+   * Renderizar vistas activas
+   */
+  function renderActiveViews() {
+    if (!activeViewsList) return;
+
+    const activeViews = analyticalViews.available.filter((v) =>
+      analyticalViews.active.includes(v.id)
+    );
+
+    if (activeViews.length === 0) {
+      activeViewsList.innerHTML = "";
+      if (activeViewsEmpty) activeViewsEmpty.classList.remove("hidden");
+      return;
+    }
+
+    if (activeViewsEmpty) activeViewsEmpty.classList.add("hidden");
+
+    activeViewsList.innerHTML = activeViews
+      .map(
+        (view) => `
+      <div class="view-item active" data-view-id="${view.id}">
+        <div class="view-item-left">
+          <div class="view-color-indicator" style="background-color: ${
+            view.color
+          };"></div>
+          <div class="view-item-info">
+            <div class="view-item-name">${view.name}</div>
+            <div class="view-item-description">${view.description || ""}</div>
+          </div>
+        </div>
+        <div class="view-item-actions">
+          ${
+            view.is_default
+              ? '<span class="view-badge default">P</span>'
+              : ""
+          }
+          <button class="view-action-btn deactivate-view" title="Desactivar vista">✓</button>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    // Agregar event listeners
+    activeViewsList.querySelectorAll(".deactivate-view").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const viewId = btn.closest(".view-item").dataset.viewId;
+        await deactivateView(viewId);
+      });
+    });
+  }
+
+  /**
+   * Renderizar vistas disponibles
+   */
+  function renderAvailableViews() {
+    console.log("🎨 renderAvailableViews called");
+    console.log("availableViewsList element:", availableViewsList);
+
+    if (!availableViewsList) {
+      console.error("❌ availableViewsList element not found!");
+      return;
+    }
+
+    const inactiveViews = analyticalViews.available.filter(
+      (v) => !analyticalViews.active.includes(v.id)
+    );
+
+    console.log(`Found ${inactiveViews.length} inactive views:`, inactiveViews);
+
+    if (inactiveViews.length === 0) {
+      availableViewsList.innerHTML =
+        '<div class="empty-state"><p>No hay vistas disponibles</p></div>';
+      return;
+    }
+
+    availableViewsList.innerHTML = inactiveViews
+      .map(
+        (view) => `
+      <div class="view-item" data-view-id="${view.id}">
+        <div class="view-item-left">
+          <div class="view-color-indicator" style="background-color: ${
+            view.color
+          };"></div>
+          <div class="view-item-info">
+            <div class="view-item-name">${view.name}</div>
+            <div class="view-item-description">${view.description || ""}</div>
+          </div>
+        </div>
+        <div class="view-item-actions">
+          ${
+            view.is_default
+              ? '<span class="view-badge default" title="Vista predefinida del sistema">P</span>'
+              : ""
+          }
+          <button class="view-action-btn activate-view" title="Activar vista">+</button>
+          ${
+            !view.is_default
+              ? '<button class="view-action-btn edit-view" title="Editar vista">✏️</button>'
+              : ""
+          }
+          ${
+            !view.is_default
+              ? '<button class="view-action-btn delete delete-view" title="Eliminar vista">🗑️</button>'
+              : ""
+          }
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    // Agregar event listeners
+    const activateButtons =
+      availableViewsList.querySelectorAll(".activate-view");
+    console.log(`📌 Found ${activateButtons.length} activate buttons`);
+    console.log("First button:", activateButtons[0]);
+
+    activateButtons.forEach((btn, index) => {
+      console.log(`Adding listener to button ${index}:`, btn);
+      btn.addEventListener("click", async (e) => {
+        console.log(`🔘 CLICK DETECTED on button ${index}`);
+        e.stopPropagation();
+        e.preventDefault();
+        const viewItem = btn.closest(".view-item");
+        console.log("View item:", viewItem);
+        const viewId = viewItem?.dataset?.viewId;
+        console.log(`🔘 Activating view: ${viewId}`);
+        await activateView(viewId);
+      });
+    });
+
+    availableViewsList.querySelectorAll(".edit-view").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const viewId = btn.closest(".view-item").dataset.viewId;
+        editView(viewId);
+      });
+    });
+
+    availableViewsList.querySelectorAll(".delete-view").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const viewId = btn.closest(".view-item").dataset.viewId;
+        await deleteView(viewId);
+      });
+    });
+  }
+
+  /**
+   * Activar una vista
+   */
+  async function activateView(viewId) {
+    console.log(`⚡ activateView called with ID: ${viewId}`);
+
+    const { error } = await supabase.from("active_analytical_views").insert({
+      user_id: state.user.id,
+      thesaurus_id: state.activeThesaurusId,
+      view_id: viewId,
+    });
+
+    if (error) {
+      console.error("Error activating view:", error);
+      Swal.fire("Error", "No se pudo activar la vista", "error");
+      return;
+    }
+
+    console.log(`✅ View ${viewId} activated successfully`);
+    await fetchActiveViews();
+    renderAnalyticalViews();
+    applyAnalyticalFilters();
+  }
+
+  /**
+   * Desactivar una vista
+   */
+  async function deactivateView(viewId) {
+    const { error } = await supabase
+      .from("active_analytical_views")
+      .delete()
+      .eq("user_id", state.user.id)
+      .eq("thesaurus_id", state.activeThesaurusId)
+      .eq("view_id", viewId);
+
+    if (error) {
+      console.error("Error deactivating view:", error);
+      Swal.fire("Error", "No se pudo desactivar la vista", "error");
+      return;
+    }
+
+    await fetchActiveViews();
+    renderAnalyticalViews();
+    applyAnalyticalFilters();
+  }
+
+  /**
+   * Aplicar filtros de las vistas activas al grafo
+   */
+  function applyAnalyticalFilters() {
+    console.log("🔍 Applying analytical filters...");
+    console.log("Active views:", analyticalViews.active);
+    console.log("Available views:", analyticalViews.available);
+
+    if (analyticalViews.active.length === 0) {
+      console.log("No active views, showing all nodes");
+      // Si no hay vistas activas, mostrar todos los nodos
+      d3.selectAll(".node")
+        .classed("view-filtered", false)
+        .classed("view-highlighted", false);
+      d3.selectAll(".link").classed("view-filtered", false);
+
+      updateViewStats();
+      return;
+    }
+
+    const activeViewsData = analyticalViews.available.filter((v) =>
+      analyticalViews.active.includes(v.id)
+    );
+
+    console.log("Active views data:", activeViewsData);
+
+    // Combinar todos los filtros de las vistas activas
+    const visibleConceptIds = new Set();
+
+    state.concepts.forEach((concept) => {
+      const shouldShow = activeViewsData.some((view) =>
+        matchesViewFilters(concept, view.filters)
+      );
+
+      if (shouldShow) {
+        visibleConceptIds.add(concept.id);
+      }
+    });
+
+    console.log(
+      `Visible concepts: ${visibleConceptIds.size} of ${state.concepts.length}`
+    );
+    console.log("Visible concept IDs:", Array.from(visibleConceptIds));
+
+    // Aplicar clases visuales
+    d3.selectAll(".node").each(function (d) {
+      const isVisible = visibleConceptIds.has(d.id);
+      d3.select(this)
+        .classed("view-filtered", !isVisible)
+        .classed("view-highlighted", isVisible)
+        .classed(isVisible ? "view-fade-in" : "view-fade-out", true);
+
+      // Remover clases de animación después de que termine
+      setTimeout(() => {
+        d3.select(this)
+          .classed("view-fade-in", false)
+          .classed("view-fade-out", false);
+      }, 500);
+    });
+
+    // Filtrar enlaces
+    d3.selectAll(".link").each(function (d) {
+      const sourceVisible = visibleConceptIds.has(d.source_concept_id);
+      const targetVisible = visibleConceptIds.has(d.target_concept_id);
+      d3.select(this).classed(
+        "view-filtered",
+        !(sourceVisible && targetVisible)
+      );
+    });
+
+    console.log("✅ Filters applied");
+    updateViewStats();
+  }
+
+  /**
+   * Verificar si un concepto coincide con los filtros de una vista
+   */
+  function matchesViewFilters(concept, filters) {
+    // Filtro por palabras clave
+    if (filters.keywords && filters.keywords.length > 0) {
+      const conceptText = [
+        ...concept.labels.map((l) => l.label_text),
+        ...concept.notes.map((n) => n.note_text),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const hasKeyword = filters.keywords.some((keyword) =>
+        conceptText.includes(keyword.toLowerCase())
+      );
+
+      if (!hasKeyword) {
+        return false;
+      }
+    }
+
+    // Filtro por categorías
+    if (filters.categories && filters.categories.length > 0) {
+      if (!filters.categories.includes(concept.category_id)) {
+        return false;
+      }
+    }
+
+    // Filtro temporal
+    if (filters.use_temporal && filters.temporal_range) {
+      const [minYear, maxYear] = filters.temporal_range;
+
+      if (concept.temporal_start && concept.temporal_start > maxYear) {
+        return false;
+      }
+
+      if (concept.temporal_end && concept.temporal_end < minYear) {
+        return false;
+      }
+    }
+
+    // Filtro por conexiones
+    if (filters.min_connections !== undefined) {
+      const connections = state.relationships.filter(
+        (r) =>
+          r.source_concept_id === concept.id ||
+          r.target_concept_id === concept.id
+      ).length;
+
+      if (connections < filters.min_connections) {
+        return false;
+      }
+    }
+
+    if (filters.max_connections !== undefined && filters.max_connections > 0) {
+      const connections = state.relationships.filter(
+        (r) =>
+          r.source_concept_id === concept.id ||
+          r.target_concept_id === concept.id
+      ).length;
+
+      if (connections > filters.max_connections) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Actualizar estadísticas de vistas
+   */
+  function updateViewStats() {
+    if (!viewStatsDiv) return;
+
+    if (analyticalViews.active.length === 0) {
+      viewStatsDiv.classList.add("hidden");
+      return;
+    }
+
+    const visibleNodes = document.querySelectorAll(
+      ".node:not(.view-filtered)"
+    ).length;
+    const totalNodes = state.concepts.length;
+
+    viewStatsDiv.classList.remove("hidden");
+    if (visibleConceptsCount) visibleConceptsCount.textContent = visibleNodes;
+    if (totalConceptsCount) totalConceptsCount.textContent = totalNodes;
+  }
+
+  /**
+   * Abrir modal para crear nueva vista
+   */
+  function openCreateViewModal() {
+    if (!analyticalViewModal) return;
+
+    analyticalViewModalTitle.textContent = "Nueva Vista Analítica";
+    analyticalViewForm.reset();
+    viewIdInput.value = "";
+
+    // Cargar categorías disponibles
+    renderCategoryFilters();
+
+    analyticalViewModal.classList.remove("hidden");
+  }
+
+  /**
+   * Editar una vista existente
+   */
+  function editView(viewId) {
+    const view = analyticalViews.available.find((v) => v.id === viewId);
+    if (!view) return;
+
+    analyticalViewModalTitle.textContent = "Editar Vista Analítica";
+    viewIdInput.value = view.id;
+    viewNameInput.value = view.name;
+    viewDescriptionInput.value = view.description || "";
+    viewColorInput.value = view.color || "#2c5282";
+
+    // Cargar filtros
+    const filters = view.filters || {};
+
+    // Categorías
+    renderCategoryFilters(filters.categories);
+    if (filters.categories && filters.categories.length > 0) {
+      viewAllCategoriesCheckbox.checked = false;
+    }
+
+    // Temporal
+    if (filters.use_temporal) {
+      viewUseTemporalFilter.checked = true;
+      viewTemporalRange.classList.remove("hidden");
+      if (filters.temporal_range) {
+        viewTemporalStart.value = filters.temporal_range[0] || "";
+        viewTemporalEnd.value = filters.temporal_range[1] || "";
+      }
+    }
+
+    // Conexiones
+    if (filters.min_connections !== undefined) {
+      viewUseConnectionFilter.checked = true;
+      viewConnectionRange.classList.remove("hidden");
+      viewMinConnections.value = filters.min_connections;
+      viewMaxConnections.value = filters.max_connections || 0;
+    }
+
+    // Tipos de relación
+    viewFilterBroader.checked = filters.show_broader !== false;
+    viewFilterRelated.checked = filters.show_related !== false;
+
+    analyticalViewModal.classList.remove("hidden");
+  }
+
+  /**
+   * Renderizar filtros de categorías
+   */
+  function renderCategoryFilters(selectedCategories = []) {
+    if (!viewCategoriesFilter) return;
+
+    viewCategoriesFilter.innerHTML = state.categories
+      .map(
+        (cat) => `
+      <label class="checkbox-label">
+        <input type="checkbox" value="${cat.id}" ${
+          selectedCategories.includes(cat.id) ? "checked" : ""
+        }>
+        <span class="category-color-dot" style="background-color: ${
+          cat.color
+        };"></span>
+        <span>${cat.name}</span>
+      </label>
+    `
+      )
+      .join("");
+  }
+
+  /**
+   * Guardar vista analítica
+   */
+  async function saveAnalyticalView(e) {
+    e.preventDefault();
+
+    const viewId = viewIdInput.value || null;
+    const filters = {};
+
+    // Recopilar filtros de categorías
+    if (!viewAllCategoriesCheckbox.checked) {
+      const selectedCategories = Array.from(
+        viewCategoriesFilter.querySelectorAll('input[type="checkbox"]:checked')
+      ).map((cb) => cb.value);
+
+      if (selectedCategories.length > 0) {
+        filters.categories = selectedCategories;
+      }
+    }
+
+    // Filtro temporal
+    if (viewUseTemporalFilter.checked) {
+      filters.use_temporal = true;
+      const startYear = parseInt(viewTemporalStart.value);
+      const endYear = parseInt(viewTemporalEnd.value);
+      if (startYear && endYear) {
+        filters.temporal_range = [startYear, endYear];
+      }
+    }
+
+    // Filtro de conexiones
+    if (viewUseConnectionFilter.checked) {
+      filters.min_connections = parseInt(viewMinConnections.value) || 0;
+      const maxConn = parseInt(viewMaxConnections.value) || 0;
+      if (maxConn > 0) {
+        filters.max_connections = maxConn;
+      }
+    }
+
+    // Tipos de relación
+    filters.show_broader = viewFilterBroader.checked;
+    filters.show_related = viewFilterRelated.checked;
+
+    const viewData = {
+      user_id: state.user.id,
+      thesaurus_id: state.activeThesaurusId,
+      name: viewNameInput.value.trim(),
+      description: viewDescriptionInput.value.trim(),
+      color: viewColorInput.value,
+      filters: filters,
+      is_default: false,
+    };
+
+    try {
+      if (viewId) {
+        // Actualizar vista existente
+        const { error } = await supabase
+          .from("analytical_views")
+          .update(viewData)
+          .eq("id", viewId);
+
+        if (error) throw error;
+      } else {
+        // Crear nueva vista
+        const { error } = await supabase
+          .from("analytical_views")
+          .insert(viewData);
+
+        if (error) throw error;
+      }
+
+      Swal.fire("Éxito", "Vista guardada correctamente", "success");
+      closeAnalyticalViewModal();
+      await fetchAnalyticalViews();
+      renderAnalyticalViews();
+    } catch (error) {
+      console.error("Error saving view:", error);
+      Swal.fire("Error", "No se pudo guardar la vista", "error");
+    }
+  }
+
+  /**
+   * Eliminar una vista
+   */
+  async function deleteView(viewId) {
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: "Se eliminará esta vista analítica",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      confirmButtonText: "Sí, eliminar",
+    });
+
+    if (!result.isConfirmed) return;
+
+    const { error } = await supabase
+      .from("analytical_views")
+      .delete()
+      .eq("id", viewId);
+
+    if (error) {
+      console.error("Error deleting view:", error);
+      Swal.fire("Error", "No se pudo eliminar la vista", "error");
+      return;
+    }
+
+    Swal.fire("Eliminada", "La vista ha sido eliminada", "success");
+    await fetchAnalyticalViews();
+    await fetchActiveViews();
+    renderAnalyticalViews();
+    applyAnalyticalFilters();
+  }
+
+  /**
+   * Cerrar modal de vista analítica
+   */
+  function closeAnalyticalViewModal() {
+    if (analyticalViewModal) {
+      analyticalViewModal.classList.add("hidden");
+    }
+  }
+
+  /**
+   * Abrir modal de gestión de vistas
+   */
+  function openManageViewsModal() {
+    renderManageViewsList();
+    manageViewsModal.classList.remove("hidden");
+  }
+
+  /**
+   * Renderizar lista de gestión de vistas
+   */
+  function renderManageViewsList() {
+    if (!viewsManagementList) return;
+
+    viewsManagementList.innerHTML = analyticalViews.available
+      .map(
+        (view) => `
+      <div class="management-view-item ${view.is_default ? "default" : ""}">
+        <div class="management-view-info">
+          <div class="view-color-indicator" style="background-color: ${
+            view.color
+          };"></div>
+          <div class="management-view-details">
+            <div class="management-view-name">${view.name}</div>
+            <div class="management-view-description">${
+              view.description || ""
+            }</div>
+          </div>
+        </div>
+        <div class="management-view-actions">
+          ${
+            !view.is_default
+              ? `<button class="edit-managed-view" data-view-id="${view.id}">✏️ Editar</button>`
+              : ""
+          }
+          ${
+            !view.is_default
+              ? `<button class="delete danger delete-managed-view" data-view-id="${view.id}">🗑️ Eliminar</button>`
+              : ""
+          }
+          ${
+            view.is_default
+              ? '<span class="view-badge default">Predefinida</span>'
+              : ""
+          }
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    // Event listeners
+    viewsManagementList
+      .querySelectorAll(".edit-managed-view")
+      .forEach((btn) => {
+        btn.addEventListener("click", () => {
+          closeManageViewsModal();
+          editView(btn.dataset.viewId);
+        });
+      });
+
+    viewsManagementList
+      .querySelectorAll(".delete-managed-view")
+      .forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await deleteView(btn.dataset.viewId);
+          renderManageViewsList();
+        });
+      });
+  }
+
+  /**
+   * Cerrar modal de gestión de vistas
+   */
+  function closeManageViewsModal() {
+    if (manageViewsModal) {
+      manageViewsModal.classList.add("hidden");
+    }
+  }
+
+  // Sobrescribir updateAll para incluir aplicación de filtros
+  const originalUpdateAll = updateAll;
+  updateAll = function () {
+    originalUpdateAll();
+    if (analyticalViews.active.length > 0) {
+      setTimeout(() => applyAnalyticalFilters(), 100);
+    }
+  };
 
   // --- PANEL DE AYUDA PARA INTERACCIÓN CON NODOS ---
   const helpToggleBtn = document.getElementById("toggle-help-btn");

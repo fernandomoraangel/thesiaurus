@@ -105,6 +105,47 @@
                 <input type="search" id="search-input" placeholder="Buscar y resaltar...">
             </section>
 
+            <!-- SECCIÓN DE VISTAS ANALÍTICAS -->
+            <section class="control-section">
+                <h2 class="collapsible-header">Vistas Analíticas 👓 <span class="toggle-collapse">-</span></h2>
+                <div id="analytical-views-section" class="collapsible-content">
+                    <div class="info-message">
+                        💡 Aplica filtros para analizar tu tesauro desde diferentes perspectivas.
+                    </div>
+
+                    <!-- Lista de vistas activas -->
+                    <div id="active-views-container">
+                        <h3>Vistas Activas</h3>
+                        <div id="active-views-list" class="views-list">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                        <div id="active-views-empty" class="empty-state hidden">
+                            <p>No hay vistas activas. Selecciona una vista para comenzar.</p>
+                        </div>
+                    </div>
+
+                    <!-- Lista de vistas disponibles -->
+                    <div id="available-views-container">
+                        <h3>Vistas Disponibles</h3>
+                        <div id="available-views-list" class="views-list">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="button-group">
+                        <button type="button" id="create-view-btn">➕ Nueva Vista</button>
+                        <button type="button" id="manage-views-btn">⚙️ Gestionar</button>
+                    </div>
+
+                    <!-- Contador de elementos visibles -->
+                    <div id="view-stats" class="view-stats hidden">
+                        <span id="visible-concepts-count">0</span> conceptos visibles de
+                        <span id="total-concepts-count">0</span>
+                    </div>
+                </div>
+            </section>
+
             <!-- SECCIÓN DE CONFIGURACIÓN DE ZOTERO -->
             <section class="control-section">
                 <h2 class="collapsible-header">Integración con Zotero <span class="toggle-collapse">-</span></h2>
@@ -437,6 +478,7 @@
     </div>
 
     <!-- MODAL PARA BÚSQUEDA DE ZOTERO -->
+    <!-- MODAL PARA BÚSQUEDA DE ZOTERO -->
     <div id="zotero-modal" class="modal-overlay hidden">
         <div class="modal-content modal-large">
             <div class="modal-header">
@@ -460,6 +502,112 @@
         </div>
     </div>
 
+    <!-- MODAL PARA CREAR/EDITAR VISTA ANALÍTICA -->
+    <div id="analytical-view-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="analytical-view-modal-title">Nueva Vista Analítica</h3>
+                <button id="analytical-view-modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="analytical-view-modal-body">
+                <form id="analytical-view-form">
+                    <input type="hidden" id="view-id">
+
+                    <!-- Información básica -->
+                    <fieldset>
+                        <legend>Información Básica</legend>
+                        <label for="view-name">Nombre de la Vista:</label>
+                        <input type="text" id="view-name" placeholder="Ej: Vista Tecnológica" required>
+
+                        <label for="view-description">Descripción:</label>
+                        <textarea id="view-description" rows="2"
+                            placeholder="Describe el propósito de esta vista..."></textarea>
+
+                        <label for="view-color">Color Identificador:</label>
+                        <input type="color" id="view-color" value="#2c5282">
+                    </fieldset>
+
+                    <!-- Filtros por categorías -->
+                    <fieldset>
+                        <legend>Filtrar por Categorías</legend>
+                        <div id="view-categories-filter" class="filter-checkboxes">
+                            <!-- Se llenará dinámicamente con las categorías disponibles -->
+                        </div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="view-all-categories" checked>
+                            <span>Incluir todas las categorías</span>
+                        </label>
+                    </fieldset>
+
+                    <!-- Filtros temporales -->
+                    <fieldset>
+                        <legend>Filtrar por Rango Temporal</legend>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="view-use-temporal-filter">
+                            <span>Aplicar filtro temporal</span>
+                        </label>
+                        <div id="view-temporal-range" class="hidden">
+                            <label for="view-temporal-start">Año Inicio:</label>
+                            <input type="number" id="view-temporal-start" placeholder="Ej: 1990">
+
+                            <label for="view-temporal-end">Año Fin:</label>
+                            <input type="number" id="view-temporal-end" placeholder="Ej: 2020">
+                        </div>
+                    </fieldset>
+
+                    <!-- Filtros relacionales -->
+                    <fieldset>
+                        <legend>Filtrar por Conexiones</legend>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="view-use-connection-filter">
+                            <span>Filtrar por número de conexiones</span>
+                        </label>
+                        <div id="view-connection-range" class="hidden">
+                            <label for="view-min-connections">Mínimo de conexiones:</label>
+                            <input type="number" id="view-min-connections" min="0" value="1" placeholder="0">
+
+                            <label for="view-max-connections">Máximo de conexiones (0 = sin límite):</label>
+                            <input type="number" id="view-max-connections" min="0" value="0" placeholder="Sin límite">
+                        </div>
+                    </fieldset>
+
+                    <!-- Filtros por tipo de relación -->
+                    <fieldset>
+                        <legend>Filtrar por Tipos de Relación</legend>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="view-filter-broader" checked>
+                            <span>Relaciones jerárquicas (broader/narrower)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="view-filter-related" checked>
+                            <span>Relaciones asociativas (related)</span>
+                        </label>
+                    </fieldset>
+
+                    <div class="button-group">
+                        <button type="submit">💾 Guardar Vista</button>
+                        <button type="button" id="cancel-view-btn">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA GESTIONAR VISTAS -->
+    <div id="manage-views-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Gestionar Vistas Analíticas</h3>
+                <button id="manage-views-modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="manage-views-modal-body">
+                <div id="views-management-list">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="button-group">
         <button type="submit">Guardar</button>
         <button type="button" id="clear-relationship-btn">Cancelar</button>
@@ -472,6 +620,20 @@
     <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->
     <script src="zotero-integration.js"></script>
     <script src="script.js"></script>
+</body>
+
+</html>
+
+
+<div class="button-group">
+    <button type="submit">Guardar</button>
+    <button type="button" id="clear-relationship-btn">Cancelar</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+
 </body>
 
 </html>
