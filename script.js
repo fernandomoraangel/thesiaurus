@@ -1600,8 +1600,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const storedSize =
         d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5;
 
-      // Obtener la forma actual del nodo
+      // Verificar si el nodo fue actualizado recientemente
+      const lastUpdated = d.fullConcept._lastUpdated;
+      const nodeLastUpdate =
+        parseFloat(currentNode.attr("data-last-update")) || 0;
+
+      // Obtener la forma y tamaño actuales del nodo
       let currentShapeType = "circle";
+      let currentNodeSize =
+        parseFloat(currentNode.attr("data-node-size")) || 0.5;
+
       if (currentShape.node()) {
         if (currentShape.node().tagName === "circle")
           currentShapeType = "circle";
@@ -1617,8 +1625,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Si cambió la forma o tamaño, remover el nodo para recrearlo
-      if (currentShapeType !== storedShape || !currentShape.node()) {
+      // Si cambió la forma, el tamaño, o fue actualizado recientemente, remover el nodo para recrearlo
+      if (
+        currentShapeType !== storedShape ||
+        Math.abs(currentNodeSize - storedSize) > 0.001 ||
+        (lastUpdated && lastUpdated > nodeLastUpdate) ||
+        !currentShape.node()
+      ) {
         currentNode.remove();
       }
     });
@@ -1630,6 +1643,10 @@ document.addEventListener("DOMContentLoaded", () => {
       .enter()
       .append("g")
       .attr("class", "node")
+      .attr("data-node-size", (d) =>
+        d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5
+      )
+      .attr("data-last-update", (d) => d.fullConcept._lastUpdated || 0)
       .call(
         d3
           .drag()
@@ -1719,6 +1736,13 @@ document.addEventListener("DOMContentLoaded", () => {
     nodeEnter.append("text").attr("dy", -12);
 
     node = nodeEnter.merge(node);
+
+    // Actualizar los atributos data en todos los nodos (nuevos y existentes)
+    node.attr("data-node-size", (d) =>
+      d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5
+    );
+    node.attr("data-last-update", (d) => d.fullConcept._lastUpdated || 0);
+
     node.select(".node-shape").attr("fill", (d) => {
       const category = state.categories.find(
         (cat) => cat.id === d.fullConcept.category_id
@@ -2256,6 +2280,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const concept = state.concepts.find((c) => c.id === conceptId);
       if (concept) {
         concept.shape = shape;
+        // Agregar marca de tiempo para forzar actualización
+        concept._lastUpdated = Date.now();
       }
       updateGraph();
       Swal.fire({
@@ -2283,6 +2309,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const concept = state.concepts.find((c) => c.id === conceptId);
       if (concept) {
         concept.size = size;
+        // Agregar marca de tiempo para forzar actualización
+        concept._lastUpdated = Date.now();
       }
       updateGraph();
       Swal.fire({
