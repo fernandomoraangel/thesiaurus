@@ -113,6 +113,39 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const categoryList = document.getElementById("category-list");
 
+  // Elementos de Zotero
+  const zoteroConfigForm = document.getElementById("zotero-config-form");
+  const zoteroApiKeyInput = document.getElementById("zotero-api-key");
+  const zoteroTypeSelect = document.getElementById("zotero-type");
+  const zoteroIdInput = document.getElementById("zotero-id");
+  const zoteroStyleSelect = document.getElementById("zotero-style");
+  const testZoteroBtn = document.getElementById("test-zotero-btn");
+  const zoteroStatus = document.getElementById("zotero-status");
+  const importZoteroBtn = document.getElementById("import-zotero-btn");
+  const zoteroModal = document.getElementById("zotero-modal");
+  const zoteroModalCloseBtn = document.getElementById("zotero-modal-close-btn");
+  const zoteroSearchInput = document.getElementById("zotero-search-input");
+  const zoteroSearchBtn = document.getElementById("zotero-search-btn");
+  const zoteroResults = document.getElementById("zotero-results");
+  const zoteroLoader = document.getElementById("zotero-loader");
+  const zoteroAddSelectedBtn = document.getElementById(
+    "zotero-add-selected-btn"
+  );
+  const zoteroCancelBtn = document.getElementById("zotero-cancel-btn");
+
+  // Inicializar Zotero Integration
+  let zotero = null;
+  if (typeof ZoteroIntegration !== "undefined") {
+    zotero = new ZoteroIntegration();
+    // Cargar configuración guardada en el formulario
+    if (zotero.isConfigured()) {
+      zoteroApiKeyInput.value = zotero.apiKey || "";
+      zoteroTypeSelect.value = zotero.libraryType || "user";
+      zoteroIdInput.value = zotero.libraryId || "";
+      zoteroStyleSelect.value = zotero.citationStyle || "apa";
+    }
+  }
+
   // --- 3. ESTADO DE LA APLICACIÓN Y CONFIGURACIÓN DE D3 ---
   let state = {
     concepts: [],
@@ -3315,6 +3348,301 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Calcular rango temporal inicial
     calculateTemporalRange();
+  }
+
+  // --- 11. FUNCIONES DE INTEGRACIÓN CON ZOTERO ---
+
+  /**
+   * Guardar configuración de Zotero
+   */
+  if (zoteroConfigForm) {
+    zoteroConfigForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!zotero) {
+        Swal.fire("Error", "Módulo de Zotero no disponible", "error");
+        return;
+      }
+
+      const apiKey = zoteroApiKeyInput.value.trim();
+      const libraryType = zoteroTypeSelect.value;
+      const libraryId = zoteroIdInput.value.trim();
+      const citationStyle = zoteroStyleSelect.value;
+
+      if (!apiKey || !libraryId) {
+        Swal.fire(
+          "Error",
+          "Por favor completa todos los campos requeridos",
+          "error"
+        );
+        return;
+      }
+
+      zotero.updateConfig(apiKey, libraryType, libraryId, citationStyle);
+
+      zoteroStatus.textContent = "✓ Configuración guardada correctamente";
+      zoteroStatus.className = "success";
+      zoteroStatus.classList.remove("hidden");
+
+      setTimeout(() => {
+        zoteroStatus.classList.add("hidden");
+      }, 3000);
+    });
+  }
+
+  /**
+   * Probar conexión con Zotero
+   */
+  if (testZoteroBtn) {
+    testZoteroBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+
+      if (!zotero) {
+        Swal.fire("Error", "Módulo de Zotero no disponible", "error");
+        return;
+      }
+
+      // Actualizar configuración primero
+      const apiKey = zoteroApiKeyInput.value.trim();
+      const libraryType = zoteroTypeSelect.value;
+      const libraryId = zoteroIdInput.value.trim();
+      const citationStyle = zoteroStyleSelect.value;
+
+      if (!apiKey || !libraryId) {
+        Swal.fire("Error", "Por favor completa API Key y Library ID", "error");
+        return;
+      }
+
+      zotero.updateConfig(apiKey, libraryType, libraryId, citationStyle);
+
+      try {
+        zoteroStatus.textContent = "Probando conexión...";
+        zoteroStatus.className = "";
+        zoteroStatus.classList.remove("hidden");
+
+        const result = await zotero.testConnection();
+
+        zoteroStatus.textContent = "✓ " + result.message;
+        zoteroStatus.className = "success";
+
+        Swal.fire("Éxito", result.message, "success");
+      } catch (error) {
+        zoteroStatus.textContent = "✗ " + error.message;
+        zoteroStatus.className = "error";
+
+        Swal.fire("Error", error.message, "error");
+      }
+    });
+  }
+
+  /**
+   * Abrir modal de búsqueda de Zotero
+   */
+  if (importZoteroBtn) {
+    importZoteroBtn.addEventListener("click", () => {
+      if (!zotero) {
+        Swal.fire("Error", "Módulo de Zotero no disponible", "error");
+        return;
+      }
+
+      if (!zotero.isConfigured()) {
+        Swal.fire({
+          title: "Configuración Requerida",
+          text: "Por favor configura tu API Key y Library ID de Zotero primero.",
+          icon: "warning",
+          confirmButtonText: "Ir a Configuración",
+        });
+        return;
+      }
+
+      zotero.clearSelection();
+      zoteroResults.innerHTML = "";
+      zoteroSearchInput.value = "";
+      zoteroAddSelectedBtn.disabled = true;
+      zoteroModal.classList.remove("hidden");
+    });
+  }
+
+  /**
+   * Buscar en Zotero
+   */
+  if (zoteroSearchBtn) {
+    zoteroSearchBtn.addEventListener("click", async () => {
+      await performZoteroSearch();
+    });
+  }
+
+  if (zoteroSearchInput) {
+    zoteroSearchInput.addEventListener("keypress", async (e) => {
+      if (e.key === "Enter") {
+        await performZoteroSearch();
+      }
+    });
+  }
+
+  async function performZoteroSearch() {
+    if (!zotero) return;
+
+    const query = zoteroSearchInput.value.trim();
+
+    try {
+      zoteroLoader.classList.remove("hidden");
+      zoteroResults.innerHTML = "";
+      zotero.clearSelection();
+      zoteroAddSelectedBtn.disabled = true;
+
+      const items = await zotero.searchItems(query, 50);
+
+      zoteroLoader.classList.add("hidden");
+
+      if (items.length === 0) {
+        zoteroResults.innerHTML =
+          '<div class="zotero-empty">No se encontraron resultados</div>';
+        return;
+      }
+
+      renderZoteroResults(items);
+    } catch (error) {
+      zoteroLoader.classList.add("hidden");
+      zoteroResults.innerHTML = `<div class="zotero-empty">Error: ${error.message}</div>`;
+      Swal.fire("Error", error.message, "error");
+    }
+  }
+
+  /**
+   * Renderizar resultados de búsqueda
+   */
+  function renderZoteroResults(items) {
+    zoteroResults.innerHTML = "";
+
+    items.forEach((item) => {
+      const info = zotero.extractItemInfo(item);
+      const itemDiv = document.createElement("div");
+      itemDiv.className = "zotero-item";
+      itemDiv.dataset.key = info.key;
+
+      // Formatear manualmente para preview
+      const citation = zotero.formatItemManually(item);
+
+      itemDiv.innerHTML = `
+        <div class="zotero-item-title">${info.title}</div>
+        <div class="zotero-item-meta">
+          <strong>Autores:</strong> ${info.authors} | 
+          <strong>Año:</strong> ${info.year} | 
+          <strong>Tipo:</strong> ${info.type}
+        </div>
+        <div class="zotero-item-citation">${citation}</div>
+      `;
+
+      itemDiv.addEventListener("click", () => {
+        toggleZoteroItemSelection(itemDiv, info.key);
+      });
+
+      zoteroResults.appendChild(itemDiv);
+    });
+  }
+
+  /**
+   * Seleccionar/deseleccionar item de Zotero
+   */
+  function toggleZoteroItemSelection(itemDiv, itemKey) {
+    if (!zotero) return;
+
+    zotero.toggleSelection(itemKey);
+    itemDiv.classList.toggle("selected");
+
+    // Actualizar botón de agregar
+    const selectedCount = zotero.getSelectedItems().length;
+    zoteroAddSelectedBtn.disabled = selectedCount === 0;
+    zoteroAddSelectedBtn.textContent =
+      selectedCount > 0
+        ? `Agregar Seleccionadas (${selectedCount})`
+        : "Agregar Seleccionadas";
+  }
+
+  /**
+   * Agregar citas seleccionadas al campo
+   */
+  if (zoteroAddSelectedBtn) {
+    zoteroAddSelectedBtn.addEventListener("click", async () => {
+      if (!zotero) return;
+
+      const selectedKeys = zotero.getSelectedItems();
+      if (selectedKeys.length === 0) return;
+
+      try {
+        zoteroLoader.classList.remove("hidden");
+        zoteroAddSelectedBtn.disabled = true;
+
+        const citations = await zotero.getFormattedCitations(selectedKeys);
+
+        // Si algunas citas no se pudieron formatear, usar el formato manual
+        const allItems = Array.from(
+          zoteroResults.querySelectorAll(".zotero-item")
+        ).filter((item) => selectedKeys.includes(item.dataset.key));
+
+        const finalCitations = [];
+        for (let i = 0; i < selectedKeys.length; i++) {
+          if (citations[i]) {
+            finalCitations.push(citations[i]);
+          } else {
+            // Usar el formato manual visible en el preview
+            const itemDiv = allItems.find(
+              (div) => div.dataset.key === selectedKeys[i]
+            );
+            if (itemDiv) {
+              const citation = itemDiv.querySelector(
+                ".zotero-item-citation"
+              ).textContent;
+              finalCitations.push(citation);
+            }
+          }
+        }
+
+        // Agregar al campo de citas
+        const currentCitations = citationsInput.value.trim();
+        const newCitations = currentCitations
+          ? currentCitations + "\n" + finalCitations.join("\n")
+          : finalCitations.join("\n");
+
+        citationsInput.value = newCitations;
+
+        zoteroLoader.classList.add("hidden");
+        zoteroModal.classList.add("hidden");
+
+        Swal.fire(
+          "Éxito",
+          `${finalCitations.length} cita(s) agregada(s)`,
+          "success"
+        );
+      } catch (error) {
+        zoteroLoader.classList.add("hidden");
+        Swal.fire("Error", error.message, "error");
+      }
+    });
+  }
+
+  /**
+   * Cerrar modal de Zotero
+   */
+  if (zoteroModalCloseBtn) {
+    zoteroModalCloseBtn.addEventListener("click", () => {
+      zoteroModal.classList.add("hidden");
+    });
+  }
+
+  if (zoteroCancelBtn) {
+    zoteroCancelBtn.addEventListener("click", () => {
+      zoteroModal.classList.add("hidden");
+    });
+  }
+
+  if (zoteroModal) {
+    zoteroModal.addEventListener("click", (e) => {
+      if (e.target === zoteroModal) {
+        zoteroModal.classList.add("hidden");
+      }
+    });
   }
 
   // --- 12. INICIALIZACIÓN ---

@@ -18,6 +18,12 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
   - **Filtrado Dinámico:** Los conceptos aparecen y desaparecen según su marco temporal.
   - **Historicidad de Relaciones:** Define cuándo fueron relevantes las conexiones entre conceptos.
   - **Visualización Evolutiva:** Grosor y opacidad variables basados en la relevancia temporal.
+- **📚 Integración con Zotero:** ⭐ **NUEVO**
+  - **Importación de Citas:** Importa citas bibliográficas directamente desde tu biblioteca de Zotero.
+  - **Búsqueda en Biblioteca:** Busca y filtra items por título, autor o palabras clave.
+  - **Formateo Automático:** Las citas se formatean según el estilo elegido (APA, MLA, Chicago, Harvard).
+  - **Selección Múltiple:** Importa múltiples citas a la vez.
+  - **Configuración Persistente:** Tu API Key y preferencias se guardan localmente.
 - **Visualización Interactiva:** Un grafo dinámico e interactivo de la estructura del tesauro impulsado por D3.js.
 - **Búsqueda:** Encuentra y resalta conceptos rápidamente dentro de la visualización.
 - **Importar/Exportar:**
@@ -49,8 +55,10 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
 ├── README.md
 ├── register.html
 ├── script.js
+├── zotero-integration.js           # 🆕 Módulo de integración con Zotero
 ├── style.css
 ├── TEMPORAL_DIMENSION_GUIDE.md    # 📘 Guía completa de la dimensión temporal
+├── ZOTERO_INTEGRATION.md          # 📚 Guía de integración con Zotero
 └── IMPLEMENTATION_SUMMARY.md      # 📋 Resumen técnico de implementación
 ```
 
@@ -60,8 +68,10 @@ Construido sobre el estándar **SKOS (Simple Knowledge Organization System)**, u
 - **`style.css`**: Contiene todos los estilos para la aplicación.
 - **`auth.js`**: Maneja la autenticación de usuarios (inicio de sesión y registro) con Supabase.
 - **`script.js`**: La lógica principal de la aplicación para la gestión de tesauros, edición de conceptos y visualización con D3.js.
+- **`zotero-integration.js`**: 🆕 Módulo para la integración con la API de Zotero.
 - **`final_migration.sql`**: El script SQL para configurar el esquema de la base de datos en Supabase.
 - **`TEMPORAL_DIMENSION_GUIDE.md`**: 📘 Guía detallada para usar la dimensión temporal.
+- **`ZOTERO_INTEGRATION.md`**: 📚 Guía completa para configurar y usar la integración con Zotero.
 - **`IMPLEMENTATION_SUMMARY.md`**: 📋 Documentación técnica de la implementación temporal.
 
 ## Esquema de la Base de Datos
@@ -71,6 +81,7 @@ La base de datos está estructurada para seguir el modelo SKOS con extensiones t
 - **`thesauruses`**: Almacena los metadatos de cada tesauro.
 - **`concepts`**: Representa los conceptos individuales dentro de un tesauro.
   - 🕰️ Incluye campos temporales: `temporal_start`, `temporal_end`, `temporal_relevance`
+  - 📚 Incluye campos de referencias: `citations`, `works`, `media` (arrays)
 - **`labels`**: Almacena las etiquetas `prefLabel`, `altLabel` y `hiddenLabel` para cada concepto.
 - **`notes`**: Contiene las notas `definition`, `scopeNote` y `example` para cada concepto.
 - **`relationships`**: Define las relaciones `broader` (más amplio), `narrower` (más específico) y `related` (relacionado) entre conceptos.
@@ -110,7 +121,8 @@ Para ejecutar este proyecto localmente, necesitarás una cuenta de Supabase.
 7.  **Visualiza:** Observa cómo crece tu tesauro en el grafo interactivo.
 8.  **Explora en el Tiempo:** 🕰️ Usa el slider temporal en la parte inferior para navegar por la historia de tu tesauro.
 9.  **Anima la Evolución:** 🕰️ Presiona el botón Play para ver cómo evoluciona tu red de conceptos año por año.
-10. **Exporta:** Guarda tu trabajo exportándolo a JSON o generando un resumen en PDF.
+10. **Importa Citas desde Zotero:** 📚 Configura tu API Key de Zotero y añade citas bibliográficas a tus conceptos.
+11. **Exporta:** Guarda tu trabajo exportándolo a JSON o generando un resumen en PDF.
 
 ### 🕰️ Guía de la Dimensión Temporal
 
@@ -120,6 +132,16 @@ Para aprender a usar todas las características de la dimensión temporal, consu
 - Configuración avanzada
 - Solución de problemas
 - Mejores prácticas
+
+### 📚 Guía de Integración con Zotero
+
+Para configurar y usar la integración con Zotero, consulta la [Guía de Integración con Zotero](ZOTERO_INTEGRATION.md) que incluye:
+- Cómo obtener tu API Key de Zotero
+- Configuración paso a paso
+- Búsqueda e importación de citas
+- Formatos de cita soportados
+- Solución de problemas comunes
+- Mejores prácticas de seguridad
 
 ## Licencia
 

@@ -105,6 +105,47 @@
                 <input type="search" id="search-input" placeholder="Buscar y resaltar...">
             </section>
 
+            <!-- SECCIÓN DE CONFIGURACIÓN DE ZOTERO -->
+            <section class="control-section">
+                <h2 class="collapsible-header">Integración con Zotero <span class="toggle-collapse">-</span></h2>
+                <div id="zotero-config" class="collapsible-content">
+                    <form id="zotero-config-form">
+                        <label for="zotero-api-key">API Key:</label>
+                        <input type="password" id="zotero-api-key" placeholder="Tu API Key de Zotero">
+
+                        <label for="zotero-type">Tipo de Biblioteca:</label>
+                        <select id="zotero-type">
+                            <option value="user">Usuario</option>
+                            <option value="group">Grupo</option>
+                        </select>
+
+                        <label for="zotero-id">User ID o Group ID:</label>
+                        <input type="text" id="zotero-id" placeholder="Tu ID de usuario o grupo">
+
+                        <label for="zotero-style">Estilo de Cita:</label>
+                        <select id="zotero-style">
+                            <option value="apa">APA</option>
+                            <option value="mla">MLA</option>
+                            <option value="chicago-note-bibliography">Chicago</option>
+                            <option value="harvard1">Harvard</option>
+                        </select>
+
+                        <div class="button-group">
+                            <button type="submit">Guardar Configuración</button>
+                            <button type="button" id="test-zotero-btn">Probar Conexión</button>
+                        </div>
+                    </form>
+                    <div id="zotero-status" class="info-message hidden"></div>
+                    <div class="info-message">
+                        💡 <strong>Cómo obtener tu API Key:</strong><br>
+                        1. Ve a <a href="https://www.zotero.org/settings/keys"
+                            target="_blank">zotero.org/settings/keys</a><br>
+                        2. Crea una nueva clave con permisos de lectura<br>
+                        3. Copia el API Key aquí
+                    </div>
+                </div>
+            </section>
+
             <!-- EDITOR DE CONCEPTOS SKOS -->
             <section class="control-section">
                 <h2 class="collapsible-header">Editor de Conceptos (SKOS) <span class="toggle-collapse">-</span></h2>
@@ -171,8 +212,14 @@
                     <fieldset>
                         <legend>Referencias y Medios</legend>
                         <label for="citations">Citas (una por línea):</label>
-                        <textarea id="citations" rows="3"
-                            placeholder="Ejemplo: Autor, A. (2020). Título del libro. Editorial."></textarea>
+                        <div class="citation-input-group">
+                            <textarea id="citations" rows="3"
+                                placeholder="Ejemplo: Autor, A. (2020). Título del libro. Editorial."></textarea>
+                            <button type="button" id="import-zotero-btn" class="zotero-btn"
+                                title="Importar desde Zotero">
+                                📚 Zotero
+                            </button>
+                        </div>
 
                         <label for="works">Obras Relacionadas (una por línea):</label>
                         <textarea id="works" rows="3"
@@ -389,6 +436,30 @@
         </div>
     </div>
 
+    <!-- MODAL PARA BÚSQUEDA DE ZOTERO -->
+    <div id="zotero-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Buscar Citas en Zotero</h3>
+                <button id="zotero-modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="zotero-modal-body">
+                <div id="zotero-search-container">
+                    <input type="search" id="zotero-search-input" placeholder="Buscar por título, autor...">
+                    <button id="zotero-search-btn">🔍 Buscar</button>
+                </div>
+                <div id="zotero-results-container">
+                    <div id="zotero-loader" class="hidden">Cargando...</div>
+                    <div id="zotero-results"></div>
+                </div>
+                <div class="button-group">
+                    <button id="zotero-add-selected-btn" disabled>Agregar Seleccionadas</button>
+                    <button id="zotero-cancel-btn">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="button-group">
         <button type="submit">Guardar</button>
         <button type="button" id="clear-relationship-btn">Cancelar</button>
@@ -399,6 +470,7 @@
     </div>
 
     <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->
+    <script src="zotero-integration.js"></script>
     <script src="script.js"></script>
 </body>
 
