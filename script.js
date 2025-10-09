@@ -143,6 +143,12 @@ document.addEventListener("DOMContentLoaded", () => {
       zoteroTypeSelect.value = zotero.libraryType || "user";
       zoteroIdInput.value = zotero.libraryId || "";
       zoteroStyleSelect.value = zotero.citationStyle || "apa";
+
+      // Ocultar la ayuda de API Key si ya está configurado
+      const apiHelp = document.getElementById("zotero-api-help");
+      if (apiHelp) {
+        apiHelp.classList.add("hidden");
+      }
     }
   }
 
@@ -3956,6 +3962,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         zoteroStatus.textContent = "✓ " + result.message;
         zoteroStatus.className = "success";
+
+        // Ocultar la ayuda de API Key cuando la conexión es exitosa
+        const apiHelp = document.getElementById("zotero-api-help");
+        if (apiHelp) {
+          apiHelp.classList.add("hidden");
+        }
 
         Swal.fire("Éxito", result.message, "success");
       } catch (error) {

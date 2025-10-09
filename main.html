@@ -49,8 +49,8 @@
 
             <!-- SECCIÓN DE DETALLES DEL TESAURO -->
             <section class="control-section">
-                <h2 class="collapsible-header">Detalles del Tesauro <span class="toggle-collapse">-</span></h2>
-                <form id="thesaurus-details-form" class="collapsible-content">
+                <h2 class="collapsible-header">Detalles del Tesauro <span class="toggle-collapse">+</span></h2>
+                <form id="thesaurus-details-form" class="collapsible-content hidden">
                     <label for="thesaurus-uri">URI:</label>
                     <input type="text" id="thesaurus-uri" placeholder="Identificador único">
                     <label for="thesaurus-author">Autor:</label>
@@ -71,8 +71,8 @@
 
             <!-- SECCIÓN DE EDITOR DE CATEGORÍAS -->
             <section class="control-section">
-                <h2 class="collapsible-header">Editor de Categorías <span class="toggle-collapse">-</span></h2>
-                <div id="category-editor" class="collapsible-content">
+                <h2 class="collapsible-header">Editor de Categorías <span class="toggle-collapse">+</span></h2>
+                <div id="category-editor" class="collapsible-content hidden">
                     <form id="category-form">
                         <input type="hidden" id="category-id">
                         <label for="category-name">Nombre:</label>
@@ -107,8 +107,8 @@
 
             <!-- SECCIÓN DE VISTAS ANALÍTICAS -->
             <section class="control-section">
-                <h2 class="collapsible-header">Vistas Analíticas 👓 <span class="toggle-collapse">-</span></h2>
-                <div id="analytical-views-section" class="collapsible-content">
+                <h2 class="collapsible-header">Vistas Analíticas 👓 <span class="toggle-collapse">+</span></h2>
+                <div id="analytical-views-section" class="collapsible-content hidden">
                     <div class="info-message">
                         💡 Aplica filtros para analizar tu tesauro desde diferentes perspectivas.
                     </div>
@@ -148,8 +148,8 @@
 
             <!-- SECCIÓN DE CONFIGURACIÓN DE ZOTERO -->
             <section class="control-section">
-                <h2 class="collapsible-header">Integración con Zotero <span class="toggle-collapse">-</span></h2>
-                <div id="zotero-config" class="collapsible-content">
+                <h2 class="collapsible-header">Integración con Zotero <span class="toggle-collapse">+</span></h2>
+                <div id="zotero-config" class="collapsible-content hidden">
                     <form id="zotero-config-form">
                         <label for="zotero-api-key">API Key:</label>
                         <input type="password" id="zotero-api-key" placeholder="Tu API Key de Zotero">
@@ -177,7 +177,7 @@
                         </div>
                     </form>
                     <div id="zotero-status" class="info-message hidden"></div>
-                    <div class="info-message">
+                    <div id="zotero-api-help" class="info-message">
                         💡 <strong>Cómo obtener tu API Key:</strong><br>
                         1. Ve a <a href="https://www.zotero.org/settings/keys"
                             target="_blank">zotero.org/settings/keys</a><br>
@@ -189,8 +189,8 @@
 
             <!-- EDITOR DE CONCEPTOS SKOS -->
             <section class="control-section">
-                <h2 class="collapsible-header">Editor de Conceptos (SKOS) <span class="toggle-collapse">-</span></h2>
-                <form id="concept-form" class="collapsible-content">
+                <h2 class="collapsible-header">Editor de Conceptos (SKOS) <span class="toggle-collapse">+</span></h2>
+                <form id="concept-form" class="collapsible-content hidden">
                     <input type="hidden" id="concept-id">
 
                     <!-- Etiquetas -->
