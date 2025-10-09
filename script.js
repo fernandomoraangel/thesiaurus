@@ -4482,67 +4482,9 @@ document.addEventListener("DOMContentLoaded", () => {
     activeViewsList.innerHTML = activeViews
       .map(
         (view) => `
-      <div class="view-item active" data-view-id="${view.id}">
-        <div class="view-item-left">
-          <div class="view-color-indicator" style="background-color: ${
-            view.color
-          };"></div>
-          <div class="view-item-info">
-            <div class="view-item-name">${view.name}</div>
-            <div class="view-item-description">${view.description || ""}</div>
-          </div>
-        </div>
-        <div class="view-item-actions">
-          ${
-            view.is_default
-              ? '<span class="view-badge default">P</span>'
-              : ""
-          }
-          <button class="view-action-btn deactivate-view" title="Desactivar vista">✓</button>
-        </div>
-      </div>
-    `
-      )
-      .join("");
-
-    // Agregar event listeners
-    activeViewsList.querySelectorAll(".deactivate-view").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const viewId = btn.closest(".view-item").dataset.viewId;
-        await deactivateView(viewId);
-      });
-    });
-  }
-
-  /**
-   * Renderizar vistas disponibles
-   */
-  function renderAvailableViews() {
-    console.log("🎨 renderAvailableViews called");
-    console.log("availableViewsList element:", availableViewsList);
-
-    if (!availableViewsList) {
-      console.error("❌ availableViewsList element not found!");
-      return;
-    }
-
-    const inactiveViews = analyticalViews.available.filter(
-      (v) => !analyticalViews.active.includes(v.id)
-    );
-
-    console.log(`Found ${inactiveViews.length} inactive views:`, inactiveViews);
-
-    if (inactiveViews.length === 0) {
-      availableViewsList.innerHTML =
-        '<div class="empty-state"><p>No hay vistas disponibles</p></div>';
-      return;
-    }
-
-    availableViewsList.innerHTML = inactiveViews
-      .map(
-        (view) => `
-      <div class="view-item" data-view-id="${view.id}">
+      <div class="view-item active clickable" data-view-id="${
+        view.id
+      }" title="Click para desactivar">
         <div class="view-item-left">
           <div class="view-color-indicator" style="background-color: ${
             view.color
@@ -4558,15 +4500,69 @@ document.addEventListener("DOMContentLoaded", () => {
               ? '<span class="view-badge default" title="Vista predefinida del sistema">P</span>'
               : ""
           }
-          <button class="view-action-btn activate-view" title="Activar vista">+</button>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    // Agregar event listeners - toda la vista es clickeable
+    activeViewsList.querySelectorAll(".view-item").forEach((item) => {
+      item.addEventListener("click", async (e) => {
+        const viewId = item.dataset.viewId;
+        await deactivateView(viewId);
+      });
+    });
+  }
+
+  /**
+   * Renderizar vistas disponibles
+   */
+  function renderAvailableViews() {
+    if (!availableViewsList) {
+      console.error("❌ availableViewsList element not found!");
+      return;
+    }
+
+    const inactiveViews = analyticalViews.available.filter(
+      (v) => !analyticalViews.active.includes(v.id)
+    );
+
+    if (inactiveViews.length === 0) {
+      availableViewsList.innerHTML =
+        '<div class="empty-state"><p>No hay vistas disponibles</p></div>';
+      return;
+    }
+
+    availableViewsList.innerHTML = inactiveViews
+      .map(
+        (view) => `
+      <div class="view-item clickable" data-view-id="${
+        view.id
+      }" title="Click para activar">
+        <div class="view-item-left">
+          <div class="view-color-indicator" style="background-color: ${
+            view.color
+          };"></div>
+          <div class="view-item-info">
+            <div class="view-item-name">${view.name}</div>
+            <div class="view-item-description">${view.description || ""}</div>
+          </div>
+        </div>
+        <div class="view-item-actions">
           ${
-            !view.is_default
-              ? '<button class="view-action-btn edit-view" title="Editar vista">✏️</button>'
+            view.is_default
+              ? '<span class="view-badge default" title="Vista predefinida del sistema">P</span>'
               : ""
           }
           ${
             !view.is_default
-              ? '<button class="view-action-btn delete delete-view" title="Eliminar vista">🗑️</button>'
+              ? '<button class="view-action-btn edit-view" title="Editar vista" onclick="event.stopPropagation()">✏️</button>'
+              : ""
+          }
+          ${
+            !view.is_default
+              ? '<button class="view-action-btn delete delete-view" title="Eliminar vista" onclick="event.stopPropagation()">🗑️</button>'
               : ""
           }
         </div>
@@ -4575,26 +4571,18 @@ document.addEventListener("DOMContentLoaded", () => {
       )
       .join("");
 
-    // Agregar event listeners
-    const activateButtons =
-      availableViewsList.querySelectorAll(".activate-view");
-    console.log(`📌 Found ${activateButtons.length} activate buttons`);
-    console.log("First button:", activateButtons[0]);
+    // Agregar event listeners - toda la vista es clickeable para activar
+    availableViewsList.querySelectorAll(".view-item").forEach((item) => {
+      item.addEventListener("click", async (e) => {
+        // Solo activar si no se hizo click en un botón de acción
+        if (e.target.closest(".view-action-btn")) return;
 
-    activateButtons.forEach((btn, index) => {
-      console.log(`Adding listener to button ${index}:`, btn);
-      btn.addEventListener("click", async (e) => {
-        console.log(`🔘 CLICK DETECTED on button ${index}`);
-        e.stopPropagation();
-        e.preventDefault();
-        const viewItem = btn.closest(".view-item");
-        console.log("View item:", viewItem);
-        const viewId = viewItem?.dataset?.viewId;
-        console.log(`🔘 Activating view: ${viewId}`);
+        const viewId = item.dataset.viewId;
         await activateView(viewId);
       });
     });
 
+    // Event listeners para editar
     availableViewsList.querySelectorAll(".edit-view").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -4603,6 +4591,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
+    // Event listeners para eliminar
     availableViewsList.querySelectorAll(".delete-view").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -4616,8 +4605,6 @@ document.addEventListener("DOMContentLoaded", () => {
    * Activar una vista
    */
   async function activateView(viewId) {
-    console.log(`⚡ activateView called with ID: ${viewId}`);
-
     const { error } = await supabase.from("active_analytical_views").insert({
       user_id: state.user.id,
       thesaurus_id: state.activeThesaurusId,
@@ -4630,7 +4617,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    console.log(`✅ View ${viewId} activated successfully`);
     await fetchActiveViews();
     renderAnalyticalViews();
     applyAnalyticalFilters();
@@ -4662,12 +4648,7 @@ document.addEventListener("DOMContentLoaded", () => {
    * Aplicar filtros de las vistas activas al grafo
    */
   function applyAnalyticalFilters() {
-    console.log("🔍 Applying analytical filters...");
-    console.log("Active views:", analyticalViews.active);
-    console.log("Available views:", analyticalViews.available);
-
     if (analyticalViews.active.length === 0) {
-      console.log("No active views, showing all nodes");
       // Si no hay vistas activas, mostrar todos los nodos
       d3.selectAll(".node")
         .classed("view-filtered", false)
@@ -4682,8 +4663,6 @@ document.addEventListener("DOMContentLoaded", () => {
       analyticalViews.active.includes(v.id)
     );
 
-    console.log("Active views data:", activeViewsData);
-
     // Combinar todos los filtros de las vistas activas
     const visibleConceptIds = new Set();
 
@@ -4696,11 +4675,6 @@ document.addEventListener("DOMContentLoaded", () => {
         visibleConceptIds.add(concept.id);
       }
     });
-
-    console.log(
-      `Visible concepts: ${visibleConceptIds.size} of ${state.concepts.length}`
-    );
-    console.log("Visible concept IDs:", Array.from(visibleConceptIds));
 
     // Aplicar clases visuales
     d3.selectAll(".node").each(function (d) {
@@ -4728,7 +4702,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     });
 
-    console.log("✅ Filters applied");
     updateViewStats();
   }
 
@@ -5074,7 +5047,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           ${
             view.is_default
-              ? '<span class="view-badge default">Predefinida</span>'
+              ? '<span class="view-badge default" title="Vista predefinida del sistema">P</span>'
               : ""
           }
         </div>

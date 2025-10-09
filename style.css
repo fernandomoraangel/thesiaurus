@@ -1580,12 +1580,15 @@ button.danger:hover {
   background: white;
   border: 2px solid var(--border-color);
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s ease;
   gap: 0.5rem;
 }
 
-.view-item:hover {
+.view-item.clickable {
+  cursor: pointer;
+}
+
+.view-item.clickable:hover {
   background: #f0f8ff;
   border-color: var(--primary-color);
   transform: translateY(-1px);
@@ -1597,6 +1600,13 @@ button.danger:hover {
   border-color: var(--primary-color);
   border-width: 2px;
   box-shadow: 0 3px 10px rgba(44, 82, 130, 0.2);
+}
+
+.view-item.active.clickable:hover {
+  background: linear-gradient(135deg, #ffd1d1, #ffe6e6);
+  border-color: var(--danger-color);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(197, 48, 48, 0.2);
 }
 
 .view-item-left {
@@ -1676,10 +1686,16 @@ button.danger:hover {
   background: var(--primary-color);
   color: white;
   font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 12px;
-  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: 50%;
+  font-weight: 700;
   white-space: nowrap;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .view-badge.default {
