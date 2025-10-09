@@ -600,6 +600,18 @@ button.danger:hover {
   border-left: 3px solid var(--primary-color);
 }
 
+.context-menu .menu-item.reset-item {
+  background-color: #fafbfc;
+  font-style: italic;
+  color: #718096;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.context-menu .menu-item.reset-item:hover {
+  background-color: #fff5f5;
+  color: #c53030;
+}
+
 .context-menu .size-control {
   padding: 12px 14px;
   background-color: #fafbfc;

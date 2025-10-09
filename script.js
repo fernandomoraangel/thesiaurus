@@ -2056,6 +2056,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // Botón de reset para forma
+    shapeList
+      .append("li")
+      .attr("class", "menu-item reset-item")
+      .html(
+        '<span style="font-size: 16px; margin-right: 8px;">↺</span><span>Restablecer (Círculo)</span>'
+      )
+      .style("border-top", "1px solid #e2e8f0")
+      .style("margin-top", "4px")
+      .style("font-style", "italic")
+      .style("color", "#718096")
+      .on("click", async () => {
+        await updateNodeShape(d.fullConcept.id, "circle");
+        menu.remove();
+      });
+
     // --- SECCIÓN: TAMAÑO ---
     const sizeSection = menu.append("div").attr("class", "menu-section");
     sizeSection
@@ -2100,6 +2116,25 @@ document.addEventListener("DOMContentLoaded", () => {
       const value = parseFloat(this.value);
       await updateNodeSize(d.fullConcept.id, value);
     });
+
+    // Botón de reset para tamaño
+    const sizeResetBtn = sizeSection
+      .append("div")
+      .attr("class", "menu-item reset-item")
+      .html(
+        '<span style="font-size: 14px; margin-right: 8px;">↺</span><span>Restablecer (50%)</span>'
+      )
+      .style("text-align", "center")
+      .style("border-top", "1px solid #e2e8f0")
+      .style("margin-top", "4px")
+      .style("padding", "8px")
+      .style("font-style", "italic")
+      .style("color", "#718096")
+      .style("cursor", "pointer")
+      .on("click", async () => {
+        await updateNodeSize(d.fullConcept.id, 0.5);
+        menu.remove();
+      });
 
     // Ajustar posición del menú si se sale de la pantalla
     // Esperar un frame para que el navegador calcule el tamaño del menú
