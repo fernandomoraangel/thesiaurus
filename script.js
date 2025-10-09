@@ -1191,7 +1191,7 @@ document.addEventListener("DOMContentLoaded", () => {
         supabase
           .from("concepts")
           .select(
-            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance, fixed_x, fixed_y, citations, works, media"
+            "id, created_at, category_id, temporal_start, temporal_end, temporal_relevance, fixed_x, fixed_y, citations, works, media, shape, size"
           )
           .eq("thesaurus_id", state.activeThesaurusId),
         supabase
@@ -1589,7 +1589,39 @@ document.addEventListener("DOMContentLoaded", () => {
     // NODES
     node = nodeGroup.selectAll(".node").data(nodes, (d) => d.id);
 
+    // Remover nodos que ya no existen
     node.exit().remove();
+
+    // Para los nodos que necesitan actualización de forma/tamaño, los removemos y recreamos
+    node.each(function(d) {
+      const currentNode = d3.select(this);
+      const currentShape = currentNode.select(".node-shape");
+      const storedShape = d.fullConcept.shape || "circle";
+      const storedSize = d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5;
+      
+      // Obtener la forma actual del nodo
+      let currentShapeType = "circle";
+      if (currentShape.node()) {
+        if (currentShape.node().tagName === "circle") currentShapeType = "circle";
+        else if (currentShape.node().tagName === "rect") currentShapeType = "square";
+        else if (currentShape.node().tagName === "path") {
+          const d = currentShape.attr("d");
+          if (d && d.includes("M 0,")) {
+            if (d.split("L").length === 4) currentShapeType = "triangle";
+            else if (d.split("L").length === 5) currentShapeType = "diamond";
+            else currentShapeType = "star";
+          }
+        }
+      }
+      
+      // Si cambió la forma o tamaño, remover el nodo para recrearlo
+      if (currentShapeType !== storedShape || !currentShape.node()) {
+        currentNode.remove();
+      }
+    });
+
+    // Volver a seleccionar después de las posibles remociones
+    node = nodeGroup.selectAll(".node").data(nodes, (d) => d.id);
 
     const nodeEnter = node
       .enter()
@@ -1604,36 +1636,87 @@ document.addEventListener("DOMContentLoaded", () => {
       )
       .on("contextmenu", showContextMenu);
 
-    nodeEnter
-      .append("circle")
-      .attr("r", 10)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2)
-      .on("click", (event, d) => {
-        if (event.shiftKey) {
-          showConceptModal(d.fullConcept);
-        } else {
-          showConceptDetails(d.fullConcept);
-        }
-      })
-      .on("dblclick", (event, d) => {
-        // Doble clic libera el nodo fijo
-        d.fx = null;
-        d.fy = null;
-        // Actualizar indicador visual
-        d3.select(event.target).attr("stroke", "#fff").attr("stroke-width", 2);
-        // Remover de base de datos
-        removeFixedNodePosition(d.id);
-        simulation.alpha(0.3).restart();
-      })
-      .on("mouseover", showTooltip)
-      .on("mousemove", moveTooltip)
-      .on("mouseout", hideTooltip);
+    nodeEnter.each(function (d) {
+      const nodeGroup = d3.select(this);
+      const shape = d.fullConcept.shape || "circle";
+      const baseSize = 10;
+      const sizeMultiplier =
+        d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5;
+      const size = baseSize * (0.5 + sizeMultiplier * 1.5); // Escala de 0.5x a 2x
+
+      // Crear la forma apropiada
+      let shapeElement;
+      switch (shape) {
+        case "square":
+          shapeElement = nodeGroup
+            .append("rect")
+            .attr("x", -size)
+            .attr("y", -size)
+            .attr("width", size * 2)
+            .attr("height", size * 2);
+          break;
+        case "triangle":
+          const trianglePath = `M 0,${-size} L ${size},${size} L ${-size},${size} Z`;
+          shapeElement = nodeGroup.append("path").attr("d", trianglePath);
+          break;
+        case "diamond":
+          const diamondPath = `M 0,${-size} L ${size},0 L 0,${size} L ${-size},0 Z`;
+          shapeElement = nodeGroup.append("path").attr("d", diamondPath);
+          break;
+        case "star":
+          const starPoints = 5;
+          const outerRadius = size;
+          const innerRadius = size * 0.4;
+          let starPath = "";
+          for (let i = 0; i < starPoints * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const angle = (i * Math.PI) / starPoints - Math.PI / 2;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            starPath += (i === 0 ? "M" : "L") + ` ${x},${y}`;
+          }
+          starPath += " Z";
+          shapeElement = nodeGroup.append("path").attr("d", starPath);
+          break;
+        case "circle":
+        default:
+          shapeElement = nodeGroup.append("circle").attr("r", size);
+          break;
+      }
+
+      // Aplicar atributos comunes a todas las formas
+      shapeElement
+        .attr("class", "node-shape")
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 2)
+        .on("click", (event, d) => {
+          if (event.shiftKey) {
+            showConceptModal(d.fullConcept);
+          } else {
+            showConceptDetails(d.fullConcept);
+          }
+        })
+        .on("dblclick", (event, d) => {
+          // Doble clic libera el nodo fijo
+          d.fx = null;
+          d.fy = null;
+          // Actualizar indicador visual
+          d3.select(event.target)
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2);
+          // Remover de base de datos
+          removeFixedNodePosition(d.id);
+          simulation.alpha(0.3).restart();
+        })
+        .on("mouseover", showTooltip)
+        .on("mousemove", moveTooltip)
+        .on("mouseout", hideTooltip);
+    });
 
     nodeEnter.append("text").attr("dy", -12);
 
     node = nodeEnter.merge(node);
-    node.select("circle").attr("fill", (d) => {
+    node.select(".node-shape").attr("fill", (d) => {
       const category = state.categories.find(
         (cat) => cat.id === d.fullConcept.category_id
       );
@@ -1642,7 +1725,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Indicador visual para nodos fijos (anclados)
     node
-      .select("circle")
+      .select(".node-shape")
       .attr("stroke", (d) =>
         d.fx !== null && d.fx !== undefined ? "#ff6b6b" : "#fff"
       )
@@ -1848,10 +1931,10 @@ document.addEventListener("DOMContentLoaded", () => {
     saveFixedNodePosition(d.id, d.fx, d.fy);
 
     // Actualizar indicador visual de nodo fijo
-    // Buscar el nodo por su data y actualizar su círculo
+    // Buscar el nodo por su data y actualizar la forma
     d3.selectAll(".node")
       .filter((nodeData) => nodeData.id === d.id)
-      .select("circle")
+      .select(".node-shape")
       .attr("stroke", "#ff6b6b")
       .attr("stroke-width", 5);
   }
@@ -1869,45 +1952,171 @@ document.addEventListener("DOMContentLoaded", () => {
       .style("left", `${event.pageX}px`)
       .style("top", `${event.pageY}px`);
 
-    const list = menu.append("ul");
+    // --- SECCIÓN: CATEGORÍAS ---
+    const categorySection = menu.append("div").attr("class", "menu-section");
+    categorySection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Categorías");
 
-    list
+    const categoryList = categorySection.append("ul");
+
+    categoryList
       .selectAll("li")
       .data(state.categories)
       .enter()
       .append("li")
+      .attr("class", "menu-item")
       .html(
         (cat) =>
-          `<span class="category-color-dot" style="background-color: ${cat.color};"></span>${cat.name}`
+          `<span class="category-color-dot" style="background-color: ${cat.color};"></span><span>${cat.name}</span>`
       )
       .on("click", (e, cat) => {
         setNodeCategory(d.fullConcept.id, cat.id);
         menu.remove();
       });
 
-    list
+    categoryList
       .append("li")
+      .attr("class", "menu-item")
       .text("Sin categoría")
       .on("click", () => {
         setNodeCategory(d.fullConcept.id, null);
         menu.remove();
       });
 
-    list.append("hr");
-
-    list
+    categoryList
       .append("li")
+      .attr("class", "menu-item")
       .text("Nueva categoría...")
       .on("click", () => {
         menu.remove();
         promptNewCategory(d.fullConcept.id);
       });
 
-    // Close menu on outside click
-    d3.select("body").on("click.context-menu", () => {
-      menu.remove();
-      d3.select("body").on("click.context-menu", null);
+    // --- SECCIÓN: FORMA ---
+    const shapeSection = menu.append("div").attr("class", "menu-section");
+    shapeSection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Forma del Nodo");
+
+    const shapes = [
+      { name: "Círculo", value: "circle", icon: "●" },
+      { name: "Cuadrado", value: "square", icon: "■" },
+      { name: "Triángulo", value: "triangle", icon: "▲" },
+      { name: "Rombo", value: "diamond", icon: "◆" },
+      { name: "Estrella", value: "star", icon: "★" },
+    ];
+
+    const shapeList = shapeSection.append("ul");
+    const currentShape = d.fullConcept.shape || "circle";
+
+    shapes.forEach((shape) => {
+      shapeList
+        .append("li")
+        .attr("class", () => {
+          return currentShape === shape.value
+            ? "menu-item selected"
+            : "menu-item";
+        })
+        .html(
+          `<span style="font-size: 16px; margin-right: 8px;">${shape.icon}</span><span>${shape.name}</span>`
+        )
+        .on("click", async () => {
+          await updateNodeShape(d.fullConcept.id, shape.value);
+          menu.remove();
+        });
     });
+
+    // --- SECCIÓN: TAMAÑO ---
+    const sizeSection = menu.append("div").attr("class", "menu-section");
+    sizeSection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Tamaño del Nodo");
+
+    const currentSize =
+      d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5;
+
+    const sizeControl = sizeSection
+      .append("div")
+      .attr("class", "menu-item size-control")
+      .style("display", "block")
+      .style("padding", "12px");
+
+    const sizeSlider = sizeControl
+      .append("input")
+      .attr("type", "range")
+      .attr("min", "0")
+      .attr("max", "1")
+      .attr("step", "0.1")
+      .attr("value", currentSize)
+      .style("width", "100%")
+      .style("margin-bottom", "8px");
+
+    const sizeDisplay = sizeControl
+      .append("div")
+      .attr("class", "size-display")
+      .style("text-align", "center")
+      .style("font-size", "14px")
+      .style("color", "#2c5282")
+      .style("font-weight", "600")
+      .text(`${Math.round(currentSize * 100)}%`);
+
+    sizeSlider.on("input", function () {
+      const value = this.value;
+      sizeDisplay.text(`${Math.round(value * 100)}%`);
+    });
+
+    sizeSlider.on("change", async function () {
+      const value = parseFloat(this.value);
+      await updateNodeSize(d.fullConcept.id, value);
+    });
+
+    // Ajustar posición del menú si se sale de la pantalla
+    // Esperar un frame para que el navegador calcule el tamaño del menú
+    setTimeout(() => {
+      const menuNode = menu.node();
+      const menuRect = menuNode.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      const windowWidth = window.innerWidth;
+      
+      let finalX = event.pageX;
+      let finalY = event.pageY;
+      
+      // Ajustar verticalmente si se sale por abajo
+      if (menuRect.bottom > windowHeight) {
+        // Intentar posicionar hacia arriba
+        finalY = event.pageY - menuRect.height;
+        
+        // Si aún así se sale por arriba, posicionar en el límite superior
+        if (finalY < 0) {
+          finalY = 10; // Pequeño margen desde arriba
+        }
+      }
+      
+      // Ajustar horizontalmente si se sale por la derecha
+      if (menuRect.right > windowWidth) {
+        finalX = event.pageX - menuRect.width;
+        
+        // Si se sale por la izquierda, posicionar en el límite izquierdo
+        if (finalX < 0) {
+          finalX = 10;
+        }
+      }
+      
+      // Aplicar posición ajustada
+      menu.style("left", `${finalX}px`).style("top", `${finalY}px`);
+    }, 0);
+
+    // Close menu on outside click
+    setTimeout(() => {
+      d3.select("body").on("click.context-menu", () => {
+        menu.remove();
+        d3.select("body").on("click.context-menu", null);
+      });
+    }, 100);
   }
 
   function showRelationshipContextMenu(event, d) {
@@ -2027,6 +2236,60 @@ document.addEventListener("DOMContentLoaded", () => {
         concept.category_id = categoryId;
       }
       updateGraph();
+    }
+  }
+
+  async function updateNodeShape(conceptId, shape) {
+    const { error } = await supabase
+      .from("concepts")
+      .update({ shape: shape })
+      .eq("id", conceptId);
+
+    if (error) {
+      console.error("Error updating node shape:", error);
+      Swal.fire("Error", "No se pudo actualizar la forma del nodo.", "error");
+    } else {
+      // Update local state
+      const concept = state.concepts.find((c) => c.id === conceptId);
+      if (concept) {
+        concept.shape = shape;
+      }
+      updateGraph();
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Forma actualizada",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+    }
+  }
+
+  async function updateNodeSize(conceptId, size) {
+    const { error } = await supabase
+      .from("concepts")
+      .update({ size: size })
+      .eq("id", conceptId);
+
+    if (error) {
+      console.error("Error updating node size:", error);
+      Swal.fire("Error", "No se pudo actualizar el tamaño del nodo.", "error");
+    } else {
+      // Update local state
+      const concept = state.concepts.find((c) => c.id === conceptId);
+      if (concept) {
+        concept.size = size;
+      }
+      updateGraph();
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Tamaño actualizado",
+        showConfirmButton: false,
+        timer: 1500,
+      });
     }
   }
 
@@ -3046,14 +3309,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const startYear = d.fullConcept.temporal_start;
 
       if (isVisible && startYear === year && animate) {
-        d3.select(this)
-          .select("circle")
+        const nodeShape = d3.select(this).select(".node-shape");
+        nodeShape
           .transition()
           .duration(800)
-          .attr("r", 10)
+          .attr("transform", "scale(1)")
           .ease(d3.easeBounceOut)
           .on("start", function () {
-            d3.select(this).attr("r", 0);
+            d3.select(this).attr("transform", "scale(0)");
           });
       }
     });
