@@ -258,10 +258,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderThesaurusDetails(thesaurus) {
     if (!thesaurus) {
-      thesaurusDetailsForm.classList.add("hidden");
       return;
     }
-    thesaurusDetailsForm.classList.remove("hidden");
+    // No modificar el estado de colapso - dejar que el usuario lo controle
     thesaurusUriInput.value = thesaurus.uri || "";
     thesaurusAuthorInput.value = thesaurus.author || "";
     thesaurusVersionInput.value = thesaurus.version || "";
