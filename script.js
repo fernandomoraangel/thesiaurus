@@ -1593,17 +1593,20 @@ document.addEventListener("DOMContentLoaded", () => {
     node.exit().remove();
 
     // Para los nodos que necesitan actualización de forma/tamaño, los removemos y recreamos
-    node.each(function(d) {
+    node.each(function (d) {
       const currentNode = d3.select(this);
       const currentShape = currentNode.select(".node-shape");
       const storedShape = d.fullConcept.shape || "circle";
-      const storedSize = d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5;
-      
+      const storedSize =
+        d.fullConcept.size !== undefined ? d.fullConcept.size : 0.5;
+
       // Obtener la forma actual del nodo
       let currentShapeType = "circle";
       if (currentShape.node()) {
-        if (currentShape.node().tagName === "circle") currentShapeType = "circle";
-        else if (currentShape.node().tagName === "rect") currentShapeType = "square";
+        if (currentShape.node().tagName === "circle")
+          currentShapeType = "circle";
+        else if (currentShape.node().tagName === "rect")
+          currentShapeType = "square";
         else if (currentShape.node().tagName === "path") {
           const d = currentShape.attr("d");
           if (d && d.includes("M 0,")) {
@@ -1613,7 +1616,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       }
-      
+
       // Si cambió la forma o tamaño, remover el nodo para recrearlo
       if (currentShapeType !== storedShape || !currentShape.node()) {
         currentNode.remove();
@@ -2081,31 +2084,31 @@ document.addEventListener("DOMContentLoaded", () => {
       const menuRect = menuNode.getBoundingClientRect();
       const windowHeight = window.innerHeight;
       const windowWidth = window.innerWidth;
-      
+
       let finalX = event.pageX;
       let finalY = event.pageY;
-      
+
       // Ajustar verticalmente si se sale por abajo
       if (menuRect.bottom > windowHeight) {
         // Intentar posicionar hacia arriba
         finalY = event.pageY - menuRect.height;
-        
+
         // Si aún así se sale por arriba, posicionar en el límite superior
         if (finalY < 0) {
           finalY = 10; // Pequeño margen desde arriba
         }
       }
-      
+
       // Ajustar horizontalmente si se sale por la derecha
       if (menuRect.right > windowWidth) {
         finalX = event.pageX - menuRect.width;
-        
+
         // Si se sale por la izquierda, posicionar en el límite izquierdo
         if (finalX < 0) {
           finalX = 10;
         }
       }
-      
+
       // Aplicar posición ajustada
       menu.style("left", `${finalX}px`).style("top", `${finalY}px`);
     }, 0);
