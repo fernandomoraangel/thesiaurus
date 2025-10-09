@@ -118,6 +118,11 @@ document.addEventListener("DOMContentLoaded", () => {
     categories: [],
     activeThesaurusId: null,
     user: null,
+    positioningMode: {
+      active: false,
+      conceptId: null,
+      conceptName: null,
+    },
   };
 
   const width = visPanel.clientWidth;
@@ -1362,9 +1367,32 @@ document.addEventListener("DOMContentLoaded", () => {
         await supabase.from("relationships").insert(relationshipsToInsert);
       }
 
-      Swal.fire("Éxito", "Concepto guardado correctamente.", "success");
-      await fetchAllConceptData();
-      clearForm();
+      // Si es un concepto nuevo, activar modo de posicionamiento
+      const isNewConcept = !conceptId;
+
+      if (isNewConcept) {
+        Swal.fire({
+          title: "Concepto Guardado",
+          text: "Haz clic en el grafo para posicionar el nuevo nodo",
+          icon: "success",
+          timer: 2500,
+          showConfirmButton: false,
+        });
+
+        // Activar modo de posicionamiento
+        state.positioningMode.active = true;
+        state.positioningMode.conceptId = currentConceptId;
+        state.positioningMode.conceptName = prefLabel.text;
+
+        // Actualizar datos y activar modo visual
+        await fetchAllConceptData();
+        clearForm();
+        activatePositioningMode();
+      } else {
+        Swal.fire("Éxito", "Concepto actualizado correctamente.", "success");
+        await fetchAllConceptData();
+        clearForm();
+      }
     } catch (error) {
       console.error("Error saving concept:", error);
       Swal.fire(
@@ -1622,14 +1650,125 @@ document.addEventListener("DOMContentLoaded", () => {
         node.fullConcept.fixed_y !== null &&
         node.fullConcept.fixed_y !== undefined
       ) {
+        // Establecer tanto posición fija (fx, fy) como posición inicial (x, y)
         node.fx = node.fullConcept.fixed_x;
         node.fy = node.fullConcept.fixed_y;
+        node.x = node.fullConcept.fixed_x;
+        node.y = node.fullConcept.fixed_y;
         fixedCount++;
       }
     });
     if (fixedCount > 0) {
       console.log(`✅ Loaded ${fixedCount} fixed node positions from database`);
     }
+  }
+
+  // --- MODO DE POSICIONAMIENTO MANUAL PARA NUEVOS NODOS ---
+  function activatePositioningMode() {
+    // Mostrar botón de cancelar
+    const cancelBtn = document.getElementById("cancel-positioning-btn");
+    if (cancelBtn) {
+      cancelBtn.classList.remove("hidden");
+    }
+
+    // Cambiar cursor del SVG
+    svg.style("cursor", "crosshair");
+
+    // Añadir overlay semi-transparente
+    const overlay = svg
+      .append("rect")
+      .attr("class", "positioning-overlay")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("fill", "rgba(52, 152, 219, 0.1)")
+      .attr("stroke", "#3498db")
+      .attr("stroke-width", 3)
+      .attr("stroke-dasharray", "10,5")
+      .style("pointer-events", "all");
+
+    // Añadir texto de instrucción
+    const instruction = svg
+      .append("text")
+      .attr("class", "positioning-instruction")
+      .attr("x", width / 2)
+      .attr("y", 30)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "18px")
+      .attr("font-weight", "bold")
+      .attr("fill", "#2c3e50")
+      .attr("stroke", "white")
+      .attr("stroke-width", 3)
+      .attr("paint-order", "stroke")
+      .text(
+        `📍 Haz clic para posicionar: ${state.positioningMode.conceptName}`
+      );
+
+    // Handler de clic en el SVG
+    overlay.on("click", handlePositioningClick);
+
+    console.log("🎯 Modo de posicionamiento activado");
+  }
+
+  async function handlePositioningClick(event) {
+    // Obtener coordenadas del clic relativas al SVG
+    const pointer = d3.pointer(event, svg.node());
+
+    // Obtener la transformación actual del zoom aplicada a nodeGroup
+    const currentTransform = d3.zoomTransform(nodeGroup.node());
+
+    // Invertir la transformación para obtener coordenadas en el espacio del grafo
+    const [x, y] = currentTransform.invert(pointer);
+
+    console.log(
+      `📍 Clic en SVG: (${pointer[0].toFixed(2)}, ${pointer[1].toFixed(2)})`
+    );
+    console.log(`📍 Posición en grafo: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+    console.log(
+      `📍 Transform: scale=${currentTransform.k.toFixed(
+        2
+      )}, tx=${currentTransform.x.toFixed(2)}, ty=${currentTransform.y.toFixed(
+        2
+      )}`
+    );
+
+    // Guardar la posición en la base de datos
+    await saveFixedNodePosition(state.positioningMode.conceptId, x, y);
+
+    // Desactivar modo de posicionamiento
+    deactivatePositioningMode();
+
+    // Recargar datos para mostrar el nodo en su nueva posición
+    await fetchAllConceptData();
+
+    Swal.fire({
+      title: "¡Posición Guardada!",
+      text: "El nodo ha sido posicionado correctamente",
+      icon: "success",
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  }
+
+  function deactivatePositioningMode() {
+    // Ocultar botón de cancelar
+    const cancelBtn = document.getElementById("cancel-positioning-btn");
+    if (cancelBtn) {
+      cancelBtn.classList.add("hidden");
+    }
+
+    // Restaurar cursor
+    svg.style("cursor", "default");
+
+    // Remover overlay e instrucciones
+    svg.select(".positioning-overlay").remove();
+    svg.select(".positioning-instruction").remove();
+
+    // Limpiar estado
+    state.positioningMode.active = false;
+    state.positioningMode.conceptId = null;
+    state.positioningMode.conceptName = null;
+
+    console.log("🎯 Modo de posicionamiento desactivado");
   }
 
   function dragstarted(event, d) {
@@ -3045,6 +3184,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const reactivateBtn = document.getElementById("reactivate-timeline-btn");
     if (reactivateBtn) {
       reactivateBtn.addEventListener("click", activateTemporalFilter);
+    }
+
+    // Botón de cancelar posicionamiento
+    const cancelPositioningBtn = document.getElementById(
+      "cancel-positioning-btn"
+    );
+    if (cancelPositioningBtn) {
+      cancelPositioningBtn.addEventListener("click", () => {
+        deactivatePositioningMode();
+        Swal.fire({
+          title: "Posicionamiento Cancelado",
+          text: "El nodo se posicionará automáticamente",
+          icon: "info",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      });
     }
 
     if (speedSlider) {

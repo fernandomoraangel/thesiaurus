@@ -975,6 +975,36 @@ button.danger:hover {
   box-shadow: 0 3px 10px rgba(44, 82, 130, 0.5);
 }
 
+/* Botón para cancelar modo de posicionamiento */
+.cancel-positioning-btn {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 15px 30px;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 5px 20px rgba(231, 76, 60, 0.5);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.cancel-positioning-btn:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 7px 25px rgba(231, 76, 60, 0.7);
+}
+
+.cancel-positioning-btn:active {
+  transform: translate(-50%, -50%) scale(0.98);
+}
+
 /* Panel de ayuda para interacción con nodos */
 .help-panel {
   position: fixed;
