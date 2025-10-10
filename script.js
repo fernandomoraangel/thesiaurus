@@ -17,6 +17,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const summaryBtn = document.getElementById("summary-btn");
   const exportSummaryBtn = document.getElementById("export-summary-btn");
 
+  // Elementos del sidebar colapsable
+  const toggleSidebarBtn = document.getElementById("toggle-sidebar-btn");
+  const controlPanel = document.getElementById("control-panel");
+
   // Elementos del gestor de tesauros
   const thesaurusSelect = document.getElementById("thesaurus-select");
   const newThesaurusForm = document.getElementById("new-thesaurus-form");
@@ -5120,6 +5124,22 @@ document.addEventListener("DOMContentLoaded", () => {
         helpContent.classList.add("hidden");
       }
     });
+  }
+
+  // --- FUNCIONALIDAD DE SIDEBAR COLAPSABLE ---
+  toggleSidebarBtn.addEventListener("click", () => {
+    const isCollapsed = controlPanel.classList.toggle("collapsed");
+    toggleSidebarBtn.classList.toggle("collapsed", isCollapsed);
+
+    // Guardar estado en localStorage
+    localStorage.setItem("sidebarCollapsed", isCollapsed);
+  });
+
+  // Restaurar estado del sidebar al cargar
+  const sidebarCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+  if (sidebarCollapsed) {
+    controlPanel.classList.add("collapsed");
+    toggleSidebarBtn.classList.add("collapsed");
   }
 
   checkUserSession();
