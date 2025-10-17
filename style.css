@@ -1998,3 +1998,28 @@ button.danger:hover {
 .context-menu .menu-section:last-child {
   margin-bottom: 0;
 }
+
+/* Estilos para opciones de color en el menú contextual */
+.context-menu .color-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-menu .color-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+}
+
+.context-menu .menu-item.selected {
+  background-color: rgba(44, 82, 130, 0.2);
+  font-weight: 600;
+}
+
+.context-menu .menu-item.selected::before {
+  content: "✓ ";
+  margin-right: 0.25rem;
+}

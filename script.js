@@ -1620,7 +1620,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     link = linkEnter.merge(link);
 
-    // Actualizar estilos visuales según historicidad
+    // Actualizar estilos visuales según historicidad y colores personalizados
     link
       .attr("stroke-width", (d) => {
         // Grosor base según tipo de relación
@@ -1645,12 +1645,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return 0.8; // Opacidad por defecto
       })
       .attr("stroke-dasharray", (d) => {
-        // Si tiene fechas definidas, usar línea sólida, si no, línea punteada
-        if (d.temporal_start || d.temporal_end) {
-          return "none";
+        // Relaciones jerárquicas (broader/narrower) = línea sólida
+        // Relaciones asociativas (related) = línea punteada
+        if (
+          d.relationship_type === "broader" ||
+          d.relationship_type === "narrower"
+        ) {
+          return "none"; // Línea sólida
         }
-        return null;
-      });
+        return "5,5"; // Línea punteada para relaciones asociativas
+      })
+      .style("stroke", (d) => {
+        // Usar color personalizado de la base de datos si existe
+        if (d.color) {
+          return d.color;
+        }
+        // Color por defecto según tipo de relación
+        return d.relationship_type === "related" ? "#2f855a" : "#2c5282";
+      })
+      .attr("class", (d) => `link ${d.relationship_type}`);
+
+    // Forzar actualización de clases CSS para cambios de tipo
+    link.attr("class", (d) => `link ${d.relationship_type}`);
 
     // NODES
     node = nodeGroup.selectAll(".node").data(nodes, (d) => d.id);
@@ -2314,6 +2330,68 @@ document.addEventListener("DOMContentLoaded", () => {
         deleteRelationship(d);
         menu.remove();
       });
+
+    // --- SECCIÓN: TIPO DE RELACIÓN ---
+    const typeSection = menu.append("div").attr("class", "menu-section");
+    typeSection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Tipo de Relación");
+
+    const typeList = typeSection.append("ul");
+
+    const relationshipTypes = [
+      { value: "broader", label: "Jerárquica (broader/narrower)", icon: "📊" },
+      { value: "related", label: "Asociativa (related)", icon: "🔗" },
+    ];
+
+    relationshipTypes.forEach((type) => {
+      typeList
+        .append("li")
+        .attr("class", () => {
+          return d.relationship_type === type.value
+            ? "menu-item selected"
+            : "menu-item";
+        })
+        .html(`<span>${type.icon}</span> ${type.label}`)
+        .on("click", () => {
+          changeRelationshipType(d, type.value);
+          menu.remove();
+        });
+    });
+
+    // --- SECCIÓN: COLOR ---
+    const colorSection = menu.append("div").attr("class", "menu-section");
+    colorSection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Color de la Relación");
+
+    const colorList = colorSection.append("ul");
+
+    const colors = [
+      { value: "#2c5282", label: "Azul (Jerárquica)", class: "color-broad" },
+      { value: "#2f855a", label: "Verde (Asociativa)", class: "color-related" },
+      { value: "#e53e3e", label: "Rojo", class: "color-red" },
+      { value: "#dd6b20", label: "Naranja", class: "color-orange" },
+      { value: "#805ad5", label: "Morado", class: "color-purple" },
+      { value: "#38a169", label: "Verde Oscuro", class: "color-dark-green" },
+      { value: "#3182ce", label: "Azul Oscuro", class: "color-dark-blue" },
+      { value: "#744210", label: "Marrón", class: "color-brown" },
+    ];
+
+    colors.forEach((color) => {
+      colorList
+        .append("li")
+        .attr("class", "menu-item color-option")
+        .html(
+          `<span class="color-swatch" style="background-color: ${color.value};"></span> ${color.label}`
+        )
+        .on("click", () => {
+          changeRelationshipColor(d, color.value);
+          menu.remove();
+        });
+    });
 
     // Ajustar posición del menú si se sale de la pantalla
     setTimeout(() => {
@@ -5560,6 +5638,192 @@ document.addEventListener("DOMContentLoaded", () => {
       Swal.fire(
         "Error",
         `No se pudo eliminar la relación: ${error.message}`,
+        "error"
+      );
+    }
+  }
+
+  /**
+   * Cambiar el tipo de relación
+   */
+  async function changeRelationshipType(relationship, newType) {
+    if (relationship.relationship_type === newType) {
+      Swal.fire("Info", "La relación ya tiene este tipo.", "info");
+      return;
+    }
+
+    const sourceConcept = state.concepts.find(
+      (c) => c.id === relationship.source_concept_id
+    );
+    const targetConcept = state.concepts.find(
+      (c) => c.id === relationship.target_concept_id
+    );
+
+    const sourceLabel =
+      sourceConcept?.labels.find((l) => l.label_type === "prefLabel")
+        ?.label_text || "Concepto";
+    const targetLabel =
+      targetConcept?.labels.find((l) => l.label_type === "prefLabel")
+        ?.label_text || "Concepto";
+
+    try {
+      // Si es jerárquica, necesitamos cambiar ambas direcciones
+      if (newType === "broader") {
+        // Cambiar a jerárquica: source -> broader, target -> narrower
+        await supabase
+          .from("relationships")
+          .update({ relationship_type: "broader" }) // No reset color, mantener personalizado
+          .eq("id", relationship.id);
+
+        // Encontrar y actualizar la relación inversa
+        const inverseRelationship = state.relationships.find(
+          (r) =>
+            r.source_concept_id === relationship.target_concept_id &&
+            r.target_concept_id === relationship.source_concept_id
+        );
+
+        if (inverseRelationship) {
+          await supabase
+            .from("relationships")
+            .update({ relationship_type: "narrower" }) // No reset color, mantener personalizado
+            .eq("id", inverseRelationship.id);
+        }
+      } else if (newType === "related") {
+        // Cambiar a asociativa: ambas direcciones -> related
+        await supabase
+          .from("relationships")
+          .update({ relationship_type: "related" }) // No reset color, mantener personalizado
+          .or(
+            `and(source_concept_id.eq.${relationship.source_concept_id},target_concept_id.eq.${relationship.target_concept_id}),and(source_concept_id.eq.${relationship.target_concept_id},target_concept_id.eq.${relationship.source_concept_id})`
+          );
+      }
+
+      // Actualizar estado local inmediatamente para feedback visual
+      relationship.relationship_type = newType;
+      if (newType === "broader") {
+        const inverseRelationship = state.relationships.find(
+          (r) =>
+            r.source_concept_id === relationship.target_concept_id &&
+            r.target_concept_id === relationship.source_concept_id
+        );
+        if (inverseRelationship) {
+          inverseRelationship.relationship_type = "narrower";
+        }
+      } else if (newType === "related") {
+        const inverseRelationship = state.relationships.find(
+          (r) =>
+            r.source_concept_id === relationship.target_concept_id &&
+            r.target_concept_id === relationship.source_concept_id
+        );
+        if (inverseRelationship) {
+          inverseRelationship.relationship_type = "related";
+        }
+      }
+
+      // Actualizar estado local inmediatamente para feedback visual
+      relationship.relationship_type = newType;
+      if (newType === "broader") {
+        const inverseRelationship = state.relationships.find(
+          (r) =>
+            r.source_concept_id === relationship.target_concept_id &&
+            r.target_concept_id === relationship.source_concept_id
+        );
+        if (inverseRelationship) {
+          inverseRelationship.relationship_type = "narrower";
+        }
+      } else if (newType === "related") {
+        const inverseRelationship = state.relationships.find(
+          (r) =>
+            r.source_concept_id === relationship.target_concept_id &&
+            r.target_concept_id === relationship.source_concept_id
+        );
+        if (inverseRelationship) {
+          inverseRelationship.relationship_type = "related";
+        }
+      }
+
+      // Forzar actualización visual inmediata del grafo
+      updateGraph();
+
+      Swal.fire("Éxito", "Tipo de relación actualizado.", "success");
+
+      // Actualizar datos desde la base de datos para asegurar consistencia
+      await fetchAllConceptData();
+
+      // Forzar actualización de los dropdowns en el formulario de conceptos si está abierto
+      const currentConceptId = conceptIdInput.value;
+      if (currentConceptId) {
+        const currentConcept = state.concepts.find(
+          (c) => c.id === currentConceptId
+        );
+        if (currentConcept) {
+          showConceptDetails(currentConcept);
+        }
+      }
+    } catch (error) {
+      console.error("Error changing relationship type:", error);
+      Swal.fire(
+        "Error",
+        `No se pudo cambiar el tipo de relación: ${error.message}`,
+        "error"
+      );
+    }
+  }
+
+  /**
+   * Cambiar el color de la relación
+   */
+  async function changeRelationshipColor(relationship, newColor) {
+    try {
+      // Actualizar el color en la base de datos
+      const { error } = await supabase
+        .from("relationships")
+        .update({
+          color: newColor,
+        })
+        .eq("id", relationship.id);
+
+      if (error) throw error;
+
+      // También actualizar la relación inversa si existe
+      const inverseRelationship = state.relationships.find(
+        (r) =>
+          r.source_concept_id === relationship.target_concept_id &&
+          r.target_concept_id === relationship.source_concept_id
+      );
+
+      if (inverseRelationship) {
+        await supabase
+          .from("relationships")
+          .update({
+            color: newColor,
+          })
+          .eq("id", inverseRelationship.id);
+      }
+
+      // Actualizar el estado local
+      relationship.color = newColor;
+      if (inverseRelationship) {
+        inverseRelationship.color = newColor;
+      }
+
+      // Aplicar el color inmediatamente al elemento SVG
+      d3.selectAll(".link")
+        .filter((d) => d.id === relationship.id)
+        .style("stroke", newColor);
+
+      if (inverseRelationship) {
+        d3.selectAll(".link")
+          .filter((d) => d.id === inverseRelationship.id)
+          .style("stroke", newColor);
+      }
+
+      Swal.fire("Éxito", "Color de relación actualizado.", "success");
+    } catch (error) {
+      console.error("Error changing relationship color:", error);
+      Swal.fire(
+        "Error",
+        `No se pudo cambiar el color de la relación: ${error.message}`,
         "error"
       );
     }
