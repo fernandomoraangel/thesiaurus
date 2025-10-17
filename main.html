@@ -448,6 +448,70 @@
         </div>
     </div>
 
+    <!-- MODAL PARA CREAR RELACIÓN -->
+    <div id="create-relationship-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="create-relationship-modal-title">Crear Nueva Relación</h3>
+                <button id="create-relationship-modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div id="create-relationship-modal-body">
+                <form id="create-relationship-form">
+                    <input type="hidden" id="source-concept-id">
+                    <input type="hidden" id="target-concept-id">
+
+                    <div class="relationship-info">
+                        <p><strong>De:</strong> <span id="source-concept-name"></span></p>
+                        <p><strong>A:</strong> <span id="target-concept-name"></span></p>
+                    </div>
+
+                    <fieldset>
+                        <legend>Tipo de Relación</legend>
+                        <label>
+                            <input type="radio" name="relationship-type" value="broader" checked>
+                            <span>Jerárquica (broader/narrower)</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="relationship-type" value="related">
+                            <span>Asociativa (related)</span>
+                        </label>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Dirección</legend>
+                        <label>
+                            <input type="radio" name="relationship-direction" value="direct" checked>
+                            <span>Directa: <span id="direction-direct-text"></span></span>
+                        </label>
+                        <label>
+                            <input type="radio" name="relationship-direction" value="inverse">
+                            <span>Inversa: <span id="direction-inverse-text"></span></span>
+                        </label>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Historicidad (opcional)</legend>
+                        <label for="new-relationship-temporal-start">Inicio:</label>
+                        <input type="number" id="new-relationship-temporal-start"
+                            placeholder="Año de inicio (ej. 1990)">
+
+                        <label for="new-relationship-temporal-end">Fin:</label>
+                        <input type="number" id="new-relationship-temporal-end" placeholder="Año de fin (ej. 2020)">
+
+                        <label for="new-relationship-temporal-relevance">Relevancia:</label>
+                        <input type="number" id="new-relationship-temporal-relevance" step="0.1" min="0" max="1"
+                            placeholder="0.0 - 1.0 (ej. 0.8)">
+                    </fieldset>
+
+                    <div class="button-group">
+                        <button type="submit">Crear Relación</button>
+                        <button type="button" id="cancel-create-relationship-btn">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL PARA CONFIGURACIÓN DE RANGO TEMPORAL -->
     <div id="timeline-config-modal" class="modal-overlay hidden">
         <div class="modal-content">

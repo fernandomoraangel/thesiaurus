@@ -104,6 +104,40 @@ document.addEventListener("DOMContentLoaded", () => {
     "clear-relationship-btn"
   );
 
+  // Elementos del Modal de Crear Relación
+  const createRelationshipModal = document.getElementById(
+    "create-relationship-modal"
+  );
+  const createRelationshipModalTitle = document.getElementById(
+    "create-relationship-modal-title"
+  );
+  const createRelationshipModalCloseBtn = document.getElementById(
+    "create-relationship-modal-close-btn"
+  );
+  const createRelationshipForm = document.getElementById(
+    "create-relationship-form"
+  );
+  const sourceConceptIdInput = document.getElementById("source-concept-id");
+  const targetConceptIdInput = document.getElementById("target-concept-id");
+  const sourceConceptNameSpan = document.getElementById("source-concept-name");
+  const targetConceptNameSpan = document.getElementById("target-concept-name");
+  const directionDirectText = document.getElementById("direction-direct-text");
+  const directionInverseText = document.getElementById(
+    "direction-inverse-text"
+  );
+  const newRelationshipTemporalStartInput = document.getElementById(
+    "new-relationship-temporal-start"
+  );
+  const newRelationshipTemporalEndInput = document.getElementById(
+    "new-relationship-temporal-end"
+  );
+  const newRelationshipTemporalRelevanceInput = document.getElementById(
+    "new-relationship-temporal-relevance"
+  );
+  const cancelCreateRelationshipBtn = document.getElementById(
+    "cancel-create-relationship-btn"
+  );
+
   // Elementos del editor de categorías
   const categoryForm = document.getElementById("category-form");
   const categoryIdInput = document.getElementById("category-id");
@@ -798,6 +832,29 @@ document.addEventListener("DOMContentLoaded", () => {
       closeRelationshipModal();
     }
   });
+
+  // Manejadores del modal de crear relación
+  createRelationshipForm.addEventListener("submit", createRelationship);
+  createRelationshipModalCloseBtn.addEventListener(
+    "click",
+    closeCreateRelationshipModal
+  );
+  cancelCreateRelationshipBtn.addEventListener(
+    "click",
+    closeCreateRelationshipModal
+  );
+  createRelationshipModal.addEventListener("click", (e) => {
+    if (e.target === createRelationshipModal) {
+      closeCreateRelationshipModal();
+    }
+  });
+
+  // Event listeners para actualizar texto de dirección dinámicamente
+  document
+    .querySelectorAll('input[name="relationship-type"]')
+    .forEach((radio) => {
+      radio.addEventListener("change", updateDirectionText);
+    });
 
   // --- Función para exportar el resumen a PDF ---
   async function exportSummaryToPdf() {
@@ -1978,6 +2035,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function showContextMenu(event, d) {
     event.preventDefault();
 
+    // Si estamos en modo de creación de relación, manejar el segundo clic
+    if (relationshipCreationState.active) {
+      handleRelationshipCreationSecondClick(d);
+      return;
+    }
+
     // Remove any existing context menus
     d3.select(".context-menu").remove();
 
@@ -1987,6 +2050,26 @@ document.addEventListener("DOMContentLoaded", () => {
       .attr("class", "context-menu")
       .style("left", `${event.pageX}px`)
       .style("top", `${event.pageY}px`);
+
+    // --- SECCIÓN: RELACIONES ---
+    const relationshipSection = menu
+      .append("div")
+      .attr("class", "menu-section");
+    relationshipSection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Relaciones");
+
+    const relationshipList = relationshipSection.append("ul");
+
+    relationshipList
+      .append("li")
+      .attr("class", "menu-item")
+      .text("➕ Crear relación desde aquí")
+      .on("click", () => {
+        startRelationshipCreation(d);
+        menu.remove();
+      });
 
     // --- SECCIÓN: CATEGORÍAS ---
     const categorySection = menu.append("div").attr("class", "menu-section");
@@ -2285,6 +2368,251 @@ document.addEventListener("DOMContentLoaded", () => {
     relationshipModal.classList.add("hidden");
     relationshipHistoricityForm.reset();
     relationshipIdInput.value = "";
+  }
+
+  /**
+   * Inicia el modo de creación de relación
+   */
+  function startRelationshipCreation(sourceConcept) {
+    relationshipCreationState.active = true;
+    relationshipCreationState.sourceConceptId = sourceConcept.id;
+    relationshipCreationState.sourceConceptName = sourceConcept.name;
+
+    // Agregar indicadores visuales
+    activateRelationshipCreationMode();
+
+    Swal.fire({
+      title: "Modo de Creación de Relación Activado",
+      text: `Haz clic derecho en el nodo destino para crear la relación desde "${sourceConcept.name}"`,
+      icon: "info",
+      timer: 3000,
+      showConfirmButton: false,
+    });
+  }
+
+  /**
+   * Maneja el segundo clic para crear la relación
+   */
+  function handleRelationshipCreationSecondClick(targetConcept) {
+    // Evitar crear relación consigo mismo
+    if (targetConcept.id === relationshipCreationState.sourceConceptId) {
+      Swal.fire(
+        "Error",
+        "No puedes crear una relación de un concepto consigo mismo.",
+        "error"
+      );
+      deactivateRelationshipCreationMode();
+      return;
+    }
+
+    // Verificar si ya existe una relación
+    const existingRelationship = state.relationships.find(
+      (r) =>
+        (r.source_concept_id === relationshipCreationState.sourceConceptId &&
+          r.target_concept_id === targetConcept.id) ||
+        (r.source_concept_id === targetConcept.id &&
+          r.target_concept_id === relationshipCreationState.sourceConceptId)
+    );
+
+    if (existingRelationship) {
+      Swal.fire(
+        "Error",
+        "Ya existe una relación entre estos conceptos.",
+        "error"
+      );
+      deactivateRelationshipCreationMode();
+      return;
+    }
+
+    // Abrir modal para definir la relación
+    openCreateRelationshipModal(targetConcept);
+  }
+
+  /**
+   * Activa indicadores visuales para el modo de creación
+   */
+  function activateRelationshipCreationMode() {
+    // Cambiar cursor
+    svg.style("cursor", "crosshair");
+
+    // Resaltar el nodo fuente
+    d3.selectAll(".node")
+      .filter((d) => d.id === relationshipCreationState.sourceConceptId)
+      .classed("relationship-source", true);
+
+    // Agregar overlay informativo
+    const overlay = svg
+      .append("rect")
+      .attr("class", "relationship-creation-overlay")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("fill", "rgba(52, 152, 219, 0.05)")
+      .attr("stroke", "#3498db")
+      .attr("stroke-width", 2)
+      .attr("stroke-dasharray", "10,5")
+      .style("pointer-events", "none");
+
+    // Agregar texto de instrucción
+    const instruction = svg
+      .append("text")
+      .attr("class", "relationship-creation-instruction")
+      .attr("x", width / 2)
+      .attr("y", 30)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "16px")
+      .attr("font-weight", "bold")
+      .attr("fill", "#2c3e50")
+      .attr("stroke", "white")
+      .attr("stroke-width", 3)
+      .attr("paint-order", "stroke")
+      .text(
+        `Clic derecho en el nodo destino para relacionar con "${relationshipCreationState.sourceConceptName}"`
+      );
+  }
+
+  /**
+   * Desactiva indicadores visuales del modo de creación
+   */
+  function deactivateRelationshipCreationMode() {
+    // Restaurar cursor
+    svg.style("cursor", "default");
+
+    // Quitar resaltado del nodo fuente
+    d3.selectAll(".node").classed("relationship-source", false);
+
+    // Remover overlay e instrucciones
+    svg.select(".relationship-creation-overlay").remove();
+    svg.select(".relationship-creation-instruction").remove();
+
+    // Limpiar estado
+    relationshipCreationState.active = false;
+    relationshipCreationState.sourceConceptId = null;
+    relationshipCreationState.sourceConceptName = null;
+  }
+
+  /**
+   * Abre el modal para crear relación
+   */
+  function openCreateRelationshipModal(targetConcept) {
+    sourceConceptIdInput.value = relationshipCreationState.sourceConceptId;
+    targetConceptIdInput.value = targetConcept.id;
+    sourceConceptNameSpan.textContent =
+      relationshipCreationState.sourceConceptName;
+    targetConceptNameSpan.textContent = targetConcept.name;
+
+    // Actualizar texto de dirección
+    updateDirectionText();
+
+    createRelationshipModal.classList.remove("hidden");
+  }
+
+  /**
+   * Actualiza el texto de dirección basado en el tipo de relación seleccionado
+   */
+  function updateDirectionText() {
+    const relationshipType = document.querySelector(
+      'input[name="relationship-type"]:checked'
+    ).value;
+    const sourceName = relationshipCreationState.sourceConceptName;
+    const targetName = targetConceptNameSpan.textContent;
+
+    if (relationshipType === "broader") {
+      directionDirectText.textContent = `"${sourceName}" es más amplio que "${targetName}"`;
+      directionInverseText.textContent = `"${targetName}" es más amplio que "${sourceName}"`;
+    } else {
+      directionDirectText.textContent = `"${sourceName}" está relacionado con "${targetName}"`;
+      directionInverseText.textContent = `"${targetName}" está relacionado con "${sourceName}"`;
+    }
+  }
+
+  /**
+   * Crea la relación en la base de datos
+   */
+  async function createRelationship(e) {
+    e.preventDefault();
+
+    const sourceId = sourceConceptIdInput.value;
+    const targetId = targetConceptIdInput.value;
+    const relationshipType = document.querySelector(
+      'input[name="relationship-type"]:checked'
+    ).value;
+    const direction = document.querySelector(
+      'input[name="relationship-direction"]:checked'
+    ).value;
+
+    // Determinar source y target basados en dirección
+    let finalSourceId, finalTargetId, finalRelationshipType;
+
+    if (direction === "direct") {
+      finalSourceId = sourceId;
+      finalTargetId = targetId;
+      finalRelationshipType = relationshipType;
+    } else {
+      finalSourceId = targetId;
+      finalTargetId = sourceId;
+      finalRelationshipType =
+        relationshipType === "broader" ? "narrower" : "related";
+    }
+
+    // Si es jerárquica, crear ambas direcciones
+    const relationshipsToCreate = [
+      {
+        source_concept_id: finalSourceId,
+        target_concept_id: finalTargetId,
+        relationship_type: finalRelationshipType,
+        temporal_start: newRelationshipTemporalStartInput.value || null,
+        temporal_end: newRelationshipTemporalEndInput.value || null,
+        temporal_relevance: newRelationshipTemporalRelevanceInput.value || null,
+      },
+    ];
+
+    if (relationshipType === "broader") {
+      relationshipsToCreate.push({
+        source_concept_id: finalTargetId,
+        target_concept_id: finalSourceId,
+        relationship_type: "narrower",
+        temporal_start: newRelationshipTemporalStartInput.value || null,
+        temporal_end: newRelationshipTemporalEndInput.value || null,
+        temporal_relevance: newRelationshipTemporalRelevanceInput.value || null,
+      });
+    } else if (relationshipType === "related") {
+      relationshipsToCreate.push({
+        source_concept_id: finalTargetId,
+        target_concept_id: finalSourceId,
+        relationship_type: "related",
+        temporal_start: newRelationshipTemporalStartInput.value || null,
+        temporal_end: newRelationshipTemporalEndInput.value || null,
+        temporal_relevance: newRelationshipTemporalRelevanceInput.value || null,
+      });
+    }
+
+    try {
+      const { error } = await supabase
+        .from("relationships")
+        .insert(relationshipsToCreate);
+
+      if (error) throw error;
+
+      Swal.fire("Éxito", "Relación creada correctamente.", "success");
+      closeCreateRelationshipModal();
+      deactivateRelationshipCreationMode();
+      await fetchAllConceptData();
+    } catch (error) {
+      console.error("Error creating relationship:", error);
+      Swal.fire(
+        "Error",
+        `No se pudo crear la relación: ${error.message}`,
+        "error"
+      );
+    }
+  }
+
+  /**
+   * Cierra el modal de crear relación
+   */
+  function closeCreateRelationshipModal() {
+    createRelationshipModal.classList.add("hidden");
+    createRelationshipForm.reset();
   }
 
   async function setNodeCategory(conceptId, categoryId) {
@@ -3233,6 +3561,13 @@ document.addEventListener("DOMContentLoaded", () => {
     showFutureConcepts: true,
     animationSpeed: 200, // milisegundos por año
     isActive: true, // Nueva: indica si el filtro temporal está activo
+  };
+
+  // Estado para creación de relaciones
+  let relationshipCreationState = {
+    active: false,
+    sourceConceptId: null,
+    sourceConceptName: null,
   };
 
   // Elementos del DOM para el sistema temporal

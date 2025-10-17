@@ -1187,6 +1187,39 @@ button.danger:hover {
   transform: translate(-50%, -50%) scale(0.98);
 }
 
+/* Estilos para modo de creación de relación */
+.node.relationship-source .node-shape {
+  stroke: #e74c3c !important;
+  stroke-width: 6px !important;
+  filter: drop-shadow(0 0 8px rgba(231, 76, 60, 0.6));
+}
+
+.relationship-creation-overlay {
+  pointer-events: none;
+}
+
+.relationship-creation-instruction {
+  pointer-events: none;
+}
+
+/* Estilos para el modal de crear relación */
+.relationship-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #3498db;
+}
+
+.relationship-info p {
+  margin: 5px 0;
+  font-weight: 500;
+}
+
+.relationship-info strong {
+  color: #2c3e50;
+}
+
 /* Panel de ayuda para interacción con nodos */
 .help-panel {
   position: fixed;
