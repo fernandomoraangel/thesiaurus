@@ -23,10 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Elementos del gestor de tesauros
   const thesaurusSelect = document.getElementById("thesaurus-select");
+  const thesaurusVersionSelect = document.getElementById(
+    "thesaurus-version-select"
+  );
   const newThesaurusForm = document.getElementById("new-thesaurus-form");
   const newThesaurusTitleInput = document.getElementById("new-thesaurus-title");
   const renameThesaurusBtn = document.getElementById("rename-thesaurus-btn");
   const deleteThesaurusBtn = document.getElementById("delete-thesaurus-btn");
+  const createVersionBtn = document.getElementById("create-version-btn");
   const thesaurusDetailsForm = document.getElementById(
     "thesaurus-details-form"
   );
@@ -269,7 +273,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const { data, error } = await supabase
       .from("thesauruses")
       .select("*")
-      .eq("user_id", state.user.id);
+      .eq("user_id", state.user.id)
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching thesauruses:", error);
@@ -289,15 +294,17 @@ document.addEventListener("DOMContentLoaded", () => {
         state.activeThesaurusId = lastActiveThesaurus.id;
         renderThesaurusDetails(lastActiveThesaurus);
       } else {
-        // Si no hay uno guardado o no es válido, usar el primero
+        // Si no hay uno guardado o no es válido, usar el primero (que debería ser el más reciente)
         state.activeThesaurusId = data[0].id;
         renderThesaurusDetails(data[0]);
       }
       renderThesaurusSelector(); // Llamar después de establecer activeThesaurusId
+      renderThesaurusVersionSelector(); // Llamar después de renderThesaurusSelector
       await fetchAllConceptData();
     } else {
       state.activeThesaurusId = null;
       renderThesaurusSelector(); // Llamar para vaciar el selector
+      renderThesaurusVersionSelector(); // Llamar para vaciar el selector de versiones
       state.concepts = [];
       state.relationships = [];
       updateAll();
@@ -305,11 +312,92 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderThesaurusSelector() {
-    thesaurusSelect.innerHTML = state.thesauruses
-      .map((t) => `<option value="${t.id}">${t.title}</option>`)
+    // Filtrar para mostrar solo las versiones más recientes (is_latest = true) o tesauros sin versiones
+    const latestThesauruses = state.thesauruses.filter(
+      (t) => t.is_latest || (!t.parent_thesaurus_id && !t.version_number)
+    );
+
+    thesaurusSelect.innerHTML = latestThesauruses
+      .map(
+        (t) =>
+          `<option value="${t.id}">${t.title}${
+            t.version_number > 1 ? ` (v${t.version_number})` : ""
+          }</option>`
+      )
       .join("");
     // Establecer el valor seleccionado basado en el tesauro activo
     thesaurusSelect.value = state.activeThesaurusId || "";
+  }
+
+  function renderThesaurusVersionSelector() {
+    if (!state.activeThesaurusId) {
+      thesaurusVersionSelect.innerHTML =
+        '<option value="">Sin versiones</option>';
+      thesaurusVersionSelect.style.display = "none";
+      return;
+    }
+
+    // Encontrar todas las versiones de este tesauro (incluyendo el actual)
+    const currentThesaurus = state.thesauruses.find(
+      (t) => t.id === state.activeThesaurusId
+    );
+    if (!currentThesaurus) {
+      thesaurusVersionSelect.innerHTML =
+        '<option value="">Sin versiones</option>';
+      thesaurusVersionSelect.style.display = "none";
+      return;
+    }
+
+    // Obtener todas las versiones de la familia
+    const versions = getThesaurusVersions(currentThesaurus);
+
+    if (versions.length <= 1) {
+      thesaurusVersionSelect.style.display = "none";
+      return;
+    }
+
+    thesaurusVersionSelect.style.display = "block";
+    thesaurusVersionSelect.innerHTML = versions
+      .sort((a, b) => b.version_number - a.version_number) // Más recientes primero
+      .map(
+        (t) =>
+          `<option value="${t.id}" ${
+            t.id === state.activeThesaurusId ? "selected" : ""
+          }>Versión ${t.version_number}${
+            t.is_latest ? " (actual)" : ""
+          }</option>`
+      )
+      .join("");
+  }
+
+  function getThesaurusVersions(thesaurus) {
+    const versions = [];
+    const visited = new Set();
+
+    // Función recursiva para encontrar todas las versiones
+    function collectVersions(currentId) {
+      if (visited.has(currentId)) return; // Evitar ciclos infinitos
+      visited.add(currentId);
+
+      const current = state.thesauruses.find((t) => t.id === currentId);
+      if (current) {
+        versions.push(current);
+
+        // Buscar versiones que tengan este como padre (hijos)
+        const childVersions = state.thesauruses.filter(
+          (t) => t.parent_thesaurus_id === currentId
+        );
+        childVersions.forEach((child) => collectVersions(child.id));
+
+        // Si tiene padre, buscar versiones hermanas (padre)
+        if (current.parent_thesaurus_id) {
+          collectVersions(current.parent_thesaurus_id);
+        }
+      }
+    }
+
+    collectVersions(thesaurus.id);
+    return [...new Set(versions)]; // Eliminar duplicados
   }
 
   function renderThesaurusDetails(thesaurus) {
@@ -388,9 +476,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const thesaurusId = state.activeThesaurusId;
     if (!thesaurusId) return;
 
+    const currentThesaurus = state.thesauruses.find(
+      (t) => t.id === thesaurusId
+    );
+    const isVersion =
+      currentThesaurus &&
+      (currentThesaurus.parent_thesaurus_id ||
+        currentThesaurus.version_number > 1);
+
+    let warningText =
+      "¡Se eliminará el tesauro y todos sus conceptos y relaciones!";
+    if (isVersion) {
+      warningText =
+        "¡Se eliminará esta versión del tesauro! Las otras versiones permanecerán intactas.";
+    }
+
     const result = await Swal.fire({
       title: "¿Estás seguro?",
-      text: "¡Se eliminará el tesauro y todos sus conceptos y relaciones!",
+      text: warningText,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -411,15 +514,40 @@ document.addEventListener("DOMContentLoaded", () => {
           (t) => t.id !== thesaurusId
         );
         renderThesaurusSelector();
+        renderThesaurusVersionSelector();
         if (state.thesauruses.length > 0) {
-          state.activeThesaurusId = state.thesauruses[0].id;
-          renderThesaurusDetails(state.thesauruses[0]);
+          // Si eliminamos una versión, intentar mantener el mismo tesauro base
+          const remainingVersions = state.thesauruses.filter(
+            (t) =>
+              t.parent_thesaurus_id === currentThesaurus.parent_thesaurus_id ||
+              t.id === currentThesaurus.parent_thesaurus_id ||
+              (!currentThesaurus.parent_thesaurus_id && !t.parent_thesaurus_id)
+          );
+
+          if (remainingVersions.length > 0) {
+            // Usar la versión más reciente disponible
+            const latestVersion = remainingVersions.sort(
+              (a, b) => b.version_number - a.version_number
+            )[0];
+            state.activeThesaurusId = latestVersion.id;
+            renderThesaurusDetails(latestVersion);
+          } else {
+            // Si no quedan versiones, usar el primero disponible
+            state.activeThesaurusId = state.thesauruses[0].id;
+            renderThesaurusDetails(state.thesauruses[0]);
+          }
         } else {
           state.activeThesaurusId = null;
           renderThesaurusDetails(null);
         }
         await fetchAllConceptData();
-        Swal.fire("Eliminado", "El tesauro ha sido eliminado.", "success");
+        Swal.fire(
+          "Eliminado",
+          isVersion
+            ? "La versión ha sido eliminada."
+            : "El tesauro ha sido eliminado.",
+          "success"
+        );
       }
     }
   });
@@ -432,7 +560,34 @@ document.addEventListener("DOMContentLoaded", () => {
       (t) => t.id == state.activeThesaurusId
     );
     renderThesaurusDetails(selectedThesaurus);
+    renderThesaurusVersionSelector();
     await fetchAllConceptData();
+  });
+
+  thesaurusVersionSelect.addEventListener("change", async () => {
+    const selectedVersionId = thesaurusVersionSelect.value;
+    if (selectedVersionId && selectedVersionId !== state.activeThesaurusId) {
+      state.activeThesaurusId = selectedVersionId;
+      localStorage.setItem("lastActiveThesaurusId", state.activeThesaurusId);
+      const selectedThesaurus = state.thesauruses.find(
+        (t) => t.id == selectedVersionId
+      );
+      renderThesaurusDetails(selectedThesaurus);
+      await fetchAllConceptData();
+    }
+  });
+
+  thesaurusVersionSelect.addEventListener("change", async () => {
+    const selectedVersionId = thesaurusVersionSelect.value;
+    if (selectedVersionId && selectedVersionId !== state.activeThesaurusId) {
+      state.activeThesaurusId = selectedVersionId;
+      localStorage.setItem("lastActiveThesaurusId", state.activeThesaurusId);
+      const selectedThesaurus = state.thesauruses.find(
+        (t) => t.id == selectedVersionId
+      );
+      renderThesaurusDetails(selectedThesaurus);
+      await fetchAllConceptData();
+    }
   });
 
   thesaurusDetailsForm.addEventListener("submit", async (e) => {
@@ -476,7 +631,212 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- 5.1. FUNCIONES DE GESTIÓN DE CATEGORÍAS ---
+  // --- 5.1. FUNCIONES DE GESTIÓN DE VERSIONES DE TESAUROS ---
+  async function createNewVersion() {
+    if (!state.activeThesaurusId) {
+      Swal.fire("Error", "No hay un tesauro activo seleccionado.", "error");
+      return;
+    }
+
+    const currentThesaurus = state.thesauruses.find(
+      (t) => t.id === state.activeThesaurusId
+    );
+    if (!currentThesaurus) {
+      Swal.fire("Error", "Tesauro no encontrado.", "error");
+      return;
+    }
+
+    // Pedir descripción de la nueva versión
+    const { value: versionDescription } = await Swal.fire({
+      title: "Crear Nueva Versión",
+      input: "textarea",
+      inputLabel: "Describe los cambios en esta versión (opcional)",
+      inputPlaceholder: "Ej: Agregados nuevos conceptos sobre...",
+      showCancelButton: true,
+      inputValidator: (value) => {
+        // No requerido, puede estar vacío
+      },
+    });
+
+    if (versionDescription === undefined) return; // Cancelado
+
+    try {
+      // 1. Marcar la versión actual como no-latest
+      await supabase
+        .from("thesauruses")
+        .update({ is_latest: false })
+        .eq("id", state.activeThesaurusId);
+
+      // 2. Crear la nueva versión copiando todos los datos
+      const newVersionData = {
+        title: currentThesaurus.title,
+        user_id: currentThesaurus.user_id,
+        uri: currentThesaurus.uri,
+        author: currentThesaurus.author,
+        version: currentThesaurus.version,
+        language: currentThesaurus.language,
+        license: currentThesaurus.license,
+        published_at: currentThesaurus.published_at,
+        description: currentThesaurus.description,
+        thesaurus_type: currentThesaurus.thesaurus_type,
+        parent_thesaurus_id: state.activeThesaurusId,
+        version_number: (currentThesaurus.version_number || 1) + 1,
+        is_latest: true,
+        version_description: versionDescription || null,
+      };
+
+      const { data: newThesaurus, error: createError } = await supabase
+        .from("thesauruses")
+        .insert(newVersionData)
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // 3. Copiar todas las categorías
+      const { data: categories, error: catError } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("thesaurus_id", state.activeThesaurusId);
+
+      if (!catError && categories) {
+        const categoriesToInsert = categories.map((cat) => ({
+          thesaurus_id: newThesaurus.id,
+          name: cat.name,
+          description: cat.description,
+          notes: cat.notes,
+          color: cat.color,
+        }));
+
+        if (categoriesToInsert.length > 0) {
+          await supabase.from("categories").insert(categoriesToInsert);
+        }
+      }
+
+      // 4. Copiar todos los conceptos
+      const { data: concepts, error: concError } = await supabase
+        .from("concepts")
+        .select("*")
+        .eq("thesaurus_id", state.activeThesaurusId);
+
+      if (!concError && concepts) {
+        const conceptIdMap = new Map();
+
+        // Crear conceptos sin referencias primero
+        for (const concept of concepts) {
+          const { data: newConcept, error: insertError } = await supabase
+            .from("concepts")
+            .insert({
+              thesaurus_id: newThesaurus.id,
+              category_id: concept.category_id, // Mantener la referencia a la nueva categoría
+              temporal_start: concept.temporal_start,
+              temporal_end: concept.temporal_end,
+              temporal_relevance: concept.temporal_relevance,
+              citations: concept.citations,
+              works: concept.works,
+              media: concept.media,
+              shape: concept.shape,
+              size: concept.size,
+              fixed_x: concept.fixed_x,
+              fixed_y: concept.fixed_y,
+            })
+            .select("id")
+            .single();
+
+          if (insertError) throw insertError;
+          conceptIdMap.set(concept.id, newConcept.id);
+        }
+
+        // 5. Copiar etiquetas
+        const { data: labels, error: labError } = await supabase
+          .from("labels")
+          .select("*")
+          .in("concept_id", Array.from(conceptIdMap.keys()));
+
+        if (!labError && labels) {
+          const labelsToInsert = labels.map((label) => ({
+            concept_id: conceptIdMap.get(label.concept_id),
+            label_type: label.label_type,
+            label_text: label.label_text,
+            lang: label.lang,
+          }));
+          await supabase.from("labels").insert(labelsToInsert);
+        }
+
+        // 6. Copiar notas
+        const { data: notes, error: notError } = await supabase
+          .from("notes")
+          .select("*")
+          .in("concept_id", Array.from(conceptIdMap.keys()));
+
+        if (!notError && notes) {
+          const notesToInsert = notes.map((note) => ({
+            concept_id: conceptIdMap.get(note.concept_id),
+            note_type: note.note_type,
+            note_text: note.note_text,
+          }));
+          await supabase.from("notes").insert(notesToInsert);
+        }
+
+        // 7. Copiar relaciones
+        const { data: relationships, error: relError } = await supabase
+          .from("relationships")
+          .select("*")
+          .or(
+            `source_concept_id.in.(${Array.from(conceptIdMap.keys()).join(
+              ","
+            )}),target_concept_id.in.(${Array.from(conceptIdMap.keys()).join(
+              ","
+            )})`
+          );
+
+        if (!relError && relationships) {
+          const relationshipsToInsert = relationships.map((rel) => ({
+            source_concept_id: conceptIdMap.get(rel.source_concept_id),
+            target_concept_id: conceptIdMap.get(rel.target_concept_id),
+            relationship_type: rel.relationship_type,
+            temporal_start: rel.temporal_start,
+            temporal_end: rel.temporal_end,
+            temporal_relevance: rel.temporal_relevance,
+            color: rel.color,
+          }));
+          await supabase.from("relationships").insert(relationshipsToInsert);
+        }
+      }
+
+      // 8. Actualizar el estado local
+      state.thesauruses.push(newThesaurus);
+      state.activeThesaurusId = newThesaurus.id;
+
+      // 9. Actualizar la interfaz
+      renderThesaurusSelector();
+      renderThesaurusVersionSelector();
+      renderThesaurusDetails(newThesaurus);
+
+      // 10. Recargar datos
+      await fetchAllConceptData();
+
+      Swal.fire(
+        "Éxito",
+        `Nueva versión ${newThesaurus.version_number} creada correctamente.`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Error creating new version:", error);
+      Swal.fire(
+        "Error",
+        `No se pudo crear la nueva versión: ${error.message}`,
+        "error"
+      );
+    }
+  }
+
+  // Event listener para el botón de crear versión
+  if (createVersionBtn) {
+    createVersionBtn.addEventListener("click", createNewVersion);
+  }
+
+  // --- 5.2. FUNCIONES DE GESTIÓN DE CATEGORÍAS ---
   function createColorPicker(colors, defaultColor = "#cccccc") {
     const swatches = colors
       .map(
@@ -795,6 +1155,19 @@ document.addEventListener("DOMContentLoaded", () => {
       if (thesaurus.version)
         thesaurusDetails += `<li><strong>Versión:</strong> ${thesaurus.version}</li>
 `;
+      if (thesaurus.version_number && thesaurus.version_number > 1)
+        thesaurusDetails += `<li><strong>Número de Versión:</strong> ${thesaurus.version_number}</li>
+`;
+      if (thesaurus.version_description)
+        thesaurusDetails += `<li><strong>Descripción de Versión:</strong> ${thesaurus.version_description}</li>
+`;
+      if (thesaurus.version_created_at) {
+        const versionDate = new Date(
+          thesaurus.version_created_at
+        ).toLocaleDateString("es-ES");
+        thesaurusDetails += `<li><strong>Fecha de Creación:</strong> ${versionDate}</li>
+`;
+      }
       if (thesaurus.description)
         thesaurusDetails += `<li><strong>Descripción:</strong> ${thesaurus.description}</li>
 `;
@@ -819,9 +1192,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const thesaurus = state.thesauruses.find(
       (t) => t.id === state.activeThesaurusId
     );
-    summaryModalTitle.textContent = thesaurus
-      ? thesaurus.title
-      : "Resumen del Tesauro";
+    let title = thesaurus ? thesaurus.title : "Resumen del Tesauro";
+    if (thesaurus && thesaurus.version_number > 1) {
+      title += ` (Versión ${thesaurus.version_number})`;
+    }
+    summaryModalTitle.textContent = title;
     renderSummary(); // Llama a la nueva función de renderizado
     summaryModal.classList.remove("hidden");
   }
@@ -891,7 +1266,7 @@ document.addEventListener("DOMContentLoaded", () => {
       visPanel.style.display = "block"; // Asegurarse de que sea visible para la captura
       visPanel.style.visibility = "hidden"; // Pero oculto para el usuario
 
-      // 1. Añadir el resumen como texto
+      // 2. Añadir el resumen como texto
       const thesaurus = state.thesauruses.find(
         (t) => t.id === state.activeThesaurusId
       );
@@ -901,7 +1276,11 @@ document.addEventListener("DOMContentLoaded", () => {
         doc.setFont("times", "bold");
         doc.setFontSize(22);
         doc.setTextColor(44, 82, 130); // Azul oscuro
-        doc.text(thesaurus.title || "Resumen del Tesauro", margin, yOffset, {
+        let title = thesaurus.title || "Resumen del Tesauro";
+        if (thesaurus.version_number > 1) {
+          title += ` (Versión ${thesaurus.version_number})`;
+        }
+        doc.text(title, margin, yOffset, {
           align: "left",
         });
         yOffset += 12;
@@ -915,6 +1294,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (thesaurus.version) {
           doc.text(`Versión: ${thesaurus.version}`, margin, yOffset);
+          yOffset += 7;
+        }
+        if (thesaurus.version_number && thesaurus.version_number > 1) {
+          doc.text(
+            `Número de Versión: ${thesaurus.version_number}`,
+            margin,
+            yOffset
+          );
+          yOffset += 7;
+        }
+        if (thesaurus.version_description) {
+          doc.text(
+            `Descripción de Versión: ${thesaurus.version_description}`,
+            margin,
+            yOffset
+          );
+          yOffset += 7;
+        }
+        if (thesaurus.version_created_at) {
+          const versionDate = new Date(
+            thesaurus.version_created_at
+          ).toLocaleDateString("es-ES");
+          doc.text(`Fecha de Creación: ${versionDate}`, margin, yOffset);
           yOffset += 7;
         }
         if (thesaurus.language) {
@@ -1238,10 +1640,14 @@ document.addEventListener("DOMContentLoaded", () => {
         visPanel.style.visibility = originalVisPanelVisibility;
 
         // Guardar el PDF
-        const thesaurusTitle =
-          state.thesauruses.find((t) => t.id === state.activeThesaurusId)
-            ?.title || "Tesauro";
-        doc.save(`resumen_${thesaurusTitle.replace(/\s+/g, "_")}.pdf`);
+        const thesaurus = state.thesauruses.find(
+          (t) => t.id === state.activeThesaurusId
+        );
+        let fileName = thesaurus?.title || "Tesauro";
+        if (thesaurus && thesaurus.version_number > 1) {
+          fileName += `_v${thesaurus.version_number}`;
+        }
+        doc.save(`resumen_${fileName.replace(/\s+/g, "_")}.pdf`);
         Swal.close();
         Swal.fire("Éxito", "El PDF ha sido generado y descargado.", "success");
       };
