@@ -276,12 +276,28 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     state.thesauruses = data;
-    renderThesaurusSelector();
     if (data.length > 0) {
-      state.activeThesaurusId = data[0].id;
-      renderThesaurusDetails(data[0]);
+      // Intentar cargar el último tesauro activo desde localStorage
+      const lastActiveThesaurusId = localStorage.getItem(
+        "lastActiveThesaurusId"
+      );
+      const lastActiveThesaurus = lastActiveThesaurusId
+        ? data.find((t) => t.id == lastActiveThesaurusId) // Usar == para comparación flexible
+        : null;
+
+      if (lastActiveThesaurus) {
+        state.activeThesaurusId = lastActiveThesaurus.id;
+        renderThesaurusDetails(lastActiveThesaurus);
+      } else {
+        // Si no hay uno guardado o no es válido, usar el primero
+        state.activeThesaurusId = data[0].id;
+        renderThesaurusDetails(data[0]);
+      }
+      renderThesaurusSelector(); // Llamar después de establecer activeThesaurusId
       await fetchAllConceptData();
     } else {
+      state.activeThesaurusId = null;
+      renderThesaurusSelector(); // Llamar para vaciar el selector
       state.concepts = [];
       state.relationships = [];
       updateAll();
@@ -292,6 +308,8 @@ document.addEventListener("DOMContentLoaded", () => {
     thesaurusSelect.innerHTML = state.thesauruses
       .map((t) => `<option value="${t.id}">${t.title}</option>`)
       .join("");
+    // Establecer el valor seleccionado basado en el tesauro activo
+    thesaurusSelect.value = state.activeThesaurusId || "";
   }
 
   function renderThesaurusDetails(thesaurus) {
@@ -327,11 +345,12 @@ document.addEventListener("DOMContentLoaded", () => {
     renderThesaurusSelector();
     thesaurusSelect.value = data.id;
     state.activeThesaurusId = data.id;
+    // Guardar el nuevo tesauro como el último activo
+    localStorage.setItem("lastActiveThesaurusId", data.id);
     renderThesaurusDetails(data);
     await fetchAllConceptData();
     newThesaurusTitleInput.value = "";
   });
-
   renameThesaurusBtn.addEventListener("click", async () => {
     const thesaurusId = state.activeThesaurusId;
     if (!thesaurusId) return;
@@ -407,6 +426,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   thesaurusSelect.addEventListener("change", async () => {
     state.activeThesaurusId = thesaurusSelect.value;
+    // Guardar el tesauro activo en localStorage
+    localStorage.setItem("lastActiveThesaurusId", state.activeThesaurusId);
     const selectedThesaurus = state.thesauruses.find(
       (t) => t.id == state.activeThesaurusId
     );
