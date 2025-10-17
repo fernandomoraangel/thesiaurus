@@ -2275,7 +2275,82 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function showRelationshipContextMenu(event, d) {
     event.preventDefault();
-    showRelationshipHistoricityModal(d);
+
+    // Remove any existing context menus
+    d3.select(".context-menu").remove();
+
+    const menu = d3
+      .select("body")
+      .append("div")
+      .attr("class", "context-menu")
+      .style("left", `${event.pageX}px`)
+      .style("top", `${event.pageY}px`);
+
+    // --- SECCIÓN: RELACIÓN ---
+    const relationshipSection = menu
+      .append("div")
+      .attr("class", "menu-section");
+    relationshipSection
+      .append("div")
+      .attr("class", "menu-section-title")
+      .text("Relación");
+
+    const relationshipList = relationshipSection.append("ul");
+
+    relationshipList
+      .append("li")
+      .attr("class", "menu-item")
+      .text("✏️ Editar Historicidad")
+      .on("click", () => {
+        showRelationshipHistoricityModal(d);
+        menu.remove();
+      });
+
+    relationshipList
+      .append("li")
+      .attr("class", "menu-item danger")
+      .text("🗑️ Eliminar Relación")
+      .on("click", () => {
+        deleteRelationship(d);
+        menu.remove();
+      });
+
+    // Ajustar posición del menú si se sale de la pantalla
+    setTimeout(() => {
+      const menuNode = menu.node();
+      const menuRect = menuNode.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      const windowWidth = window.innerWidth;
+
+      let finalX = event.pageX;
+      let finalY = event.pageY;
+
+      // Ajustar verticalmente si se sale por abajo
+      if (menuRect.bottom > windowHeight) {
+        finalY = event.pageY - menuRect.height;
+        if (finalY < 0) {
+          finalY = 10;
+        }
+      }
+
+      // Ajustar horizontalmente si se sale por la derecha
+      if (menuRect.right > windowWidth) {
+        finalX = event.pageX - menuRect.width;
+        if (finalX < 0) {
+          finalX = 10;
+        }
+      }
+
+      menu.style("left", `${finalX}px`).style("top", `${finalY}px`);
+    }, 0);
+
+    // Close menu on outside click
+    setTimeout(() => {
+      d3.select("body").on("click.context-menu", () => {
+        menu.remove();
+        d3.select("body").on("click.context-menu", null);
+      });
+    }, 100);
   }
 
   function showRelationshipHistoricityModal(relationship) {
@@ -5432,6 +5507,61 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeManageViewsModal() {
     if (manageViewsModal) {
       manageViewsModal.classList.add("hidden");
+    }
+  }
+
+  /**
+   * Eliminar una relación
+   */
+  async function deleteRelationship(relationship) {
+    const sourceConcept = state.concepts.find(
+      (c) => c.id === relationship.source_concept_id
+    );
+    const targetConcept = state.concepts.find(
+      (c) => c.id === relationship.target_concept_id
+    );
+
+    const sourceLabel =
+      sourceConcept?.labels.find((l) => l.label_type === "prefLabel")
+        ?.label_text || "Concepto";
+    const targetLabel =
+      targetConcept?.labels.find((l) => l.label_type === "prefLabel")
+        ?.label_text || "Concepto";
+
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: `Se eliminará la relación entre "${sourceLabel}" y "${targetLabel}". Esta acción no se puede deshacer.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Sí, ¡elimínala!",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      // Eliminar todas las relaciones bidireccionales entre estos conceptos
+      const { error } = await supabase
+        .from("relationships")
+        .delete()
+        .or(
+          `and(source_concept_id.eq.${relationship.source_concept_id},target_concept_id.eq.${relationship.target_concept_id}),and(source_concept_id.eq.${relationship.target_concept_id},target_concept_id.eq.${relationship.source_concept_id})`
+        );
+
+      if (error) throw error;
+
+      Swal.fire("Eliminada", "La relación ha sido eliminada.", "success");
+
+      // Actualizar datos locales
+      await fetchAllConceptData();
+    } catch (error) {
+      console.error("Error deleting relationship:", error);
+      Swal.fire(
+        "Error",
+        `No se pudo eliminar la relación: ${error.message}`,
+        "error"
+      );
     }
   }
 
