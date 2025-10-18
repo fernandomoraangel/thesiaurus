@@ -1472,6 +1472,89 @@ button.danger:hover {
   font-size: 14px;
 }
 
+/* === ESTILOS DEL SISTEMA DE SNAPSHOTS === */
+
+.historical-view-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+}
+
+.historical-view-banner .banner-icon {
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+.historical-view-banner .banner-text {
+  flex: 1;
+}
+
+.historical-view-banner .banner-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 12px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.historical-view-banner .banner-close:hover {
+  opacity: 1;
+}
+
+.historical-input {
+  background-color: #f8f9fa !important;
+  border: 1px solid #dee2e6 !important;
+  color: #6c757d !important;
+  cursor: not-allowed !important;
+}
+
+.timeline-snapshot-marker {
+  position: absolute;
+  top: -8px;
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(135deg, #28a745, #20c997);
+  border-radius: 2px;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.timeline-snapshot-marker:hover {
+  height: 20px;
+  top: -10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.timeline-snapshot-marker::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 4px;
+  background: rgba(40, 167, 69, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.timeline-snapshot-marker:hover::before {
+  opacity: 1;
+}
+
 /* --- ESTILOS PARA MEDIOS EMBEBIDOS --- */
 .media-container {
   margin: 15px 0;

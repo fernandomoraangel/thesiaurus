@@ -1916,6 +1916,24 @@ document.addEventListener("DOMContentLoaded", () => {
         await supabase.from("relationships").insert(relationshipsToInsert);
       }
 
+      // === CREAR SNAPSHOT DEL CONCEPTO ===
+      // Preparar datos completos del concepto para el snapshot
+      const conceptSnapshotData = {
+        id: currentConceptId,
+        labels: allLabels,
+        notes: allNotes,
+        temporal_start: temporalStart,
+        temporal_end: temporalEnd,
+        temporal_relevance: temporalRelevance,
+        citations: citations,
+        works: works,
+        media: media,
+        broader_concept_id: broaderConceptId,
+        related_concept_ids: relatedConceptIds,
+      };
+
+      await createConceptSnapshot(currentConceptId, conceptSnapshotData);
+
       // Si es un concepto nuevo, activar modo de posicionamiento
       const isNewConcept = !conceptId;
 
@@ -4150,6 +4168,372 @@ document.addEventListener("DOMContentLoaded", () => {
     sourceConceptName: null,
   };
 
+  // --- SISTEMA DE SNAPSHOTS TEMPORALES ---
+
+  // Estado del sistema de snapshots
+  let snapshotsState = {
+    snapshots: [], // Array de snapshots cargados
+    currentHistoricalYear: null, // Año actual en modo histórico
+    isHistoricalMode: false, // Si estamos en modo histórico
+    historicalData: null, // Datos históricos del formulario actual
+  };
+
+  /**
+   * Crear snapshot automático al guardar concepto
+   */
+  async function createConceptSnapshot(conceptId, conceptData) {
+    console.log("🔄 createConceptSnapshot called for concept:", conceptId);
+    console.log(
+      "activeThesaurusId:",
+      state.activeThesaurusId,
+      "user.id:",
+      state.user?.id
+    );
+
+    if (!state.activeThesaurusId) {
+      console.error("❌ No active thesaurus ID");
+      return;
+    }
+
+    if (!state.user?.id) {
+      console.error("❌ No user ID");
+      return;
+    }
+
+    try {
+      const snapshotData = {
+        thesaurus_id: state.activeThesaurusId,
+        entity_type: "concept",
+        entity_id: conceptId,
+        snapshot_date: new Date().getFullYear(),
+        snapshot_data: conceptData,
+        user_id: state.user.id,
+      };
+
+      console.log("📝 Inserting snapshot data:", snapshotData);
+
+      const { data, error } = await supabase
+        .from("snapshots")
+        .insert(snapshotData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Error creating concept snapshot:", error);
+        alert("Error creando snapshot del concepto: " + error.message);
+      } else {
+        console.log("✅ Concept snapshot created:", data.id);
+        // Agregar al estado local si es necesario
+        snapshotsState.snapshots.push(data);
+      }
+    } catch (error) {
+      console.error("❌ Error in createConceptSnapshot:", error);
+      alert("Error en createConceptSnapshot: " + error.message);
+    }
+  }
+
+  /**
+   * Crear snapshot automático al guardar relación
+   */
+  async function createRelationshipSnapshot(relationshipId, relationshipData) {
+    if (!state.activeThesaurusId) return;
+
+    try {
+      const snapshotData = {
+        thesaurus_id: state.activeThesaurusId,
+        entity_type: "relationship",
+        entity_id: relationshipId,
+        snapshot_date: new Date().getFullYear(),
+        snapshot_data: relationshipData,
+        user_id: state.user.id,
+      };
+
+      const { data, error } = await supabase
+        .from("snapshots")
+        .insert(snapshotData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating relationship snapshot:", error);
+      } else {
+        console.log("✅ Relationship snapshot created:", data.id);
+        snapshotsState.snapshots.push(data);
+      }
+    } catch (error) {
+      console.error("Error in createRelationshipSnapshot:", error);
+    }
+  }
+
+  /**
+   * Obtener estado histórico de un concepto en un año específico
+   */
+  async function getConceptStateAtYear(conceptId, year) {
+    if (!state.activeThesaurusId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("snapshots")
+        .select("snapshot_data")
+        .eq("thesaurus_id", state.activeThesaurusId)
+        .eq("entity_type", "concept")
+        .eq("entity_id", conceptId)
+        .lte("snapshot_date", year)
+        .order("snapshot_date", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        // PGRST116 = no rows returned
+        console.error("Error fetching concept snapshot:", error);
+        return null;
+      }
+
+      return data ? data.snapshot_data : null;
+    } catch (error) {
+      console.error("Error in getConceptStateAtYear:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtener estado histórico de una relación en un año específico
+   */
+  async function getRelationshipStateAtYear(relationshipId, year) {
+    if (!state.activeThesaurusId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("snapshots")
+        .select("snapshot_data")
+        .eq("thesaurus_id", state.activeThesaurusId)
+        .eq("entity_type", "relationship")
+        .eq("entity_id", relationshipId)
+        .lte("snapshot_date", year)
+        .order("snapshot_date", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching relationship snapshot:", error);
+        return null;
+      }
+
+      return data ? data.snapshot_data : null;
+    } catch (error) {
+      console.error("Error in getRelationshipStateAtYear:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Cargar snapshots disponibles para el tesauro actual
+   */
+  async function loadSnapshotsForThesaurus() {
+    if (!state.activeThesaurusId) {
+      snapshotsState.snapshots = [];
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("snapshots")
+        .select("*")
+        .eq("thesaurus_id", state.activeThesaurusId)
+        .order("snapshot_date", { ascending: false });
+
+      if (error) {
+        console.error("Error loading snapshots:", error);
+        snapshotsState.snapshots = [];
+      } else {
+        snapshotsState.snapshots = data || [];
+        console.log(`✅ Loaded ${snapshotsState.snapshots.length} snapshots`);
+      }
+    } catch (error) {
+      console.error("Error in loadSnapshotsForThesaurus:", error);
+      snapshotsState.snapshots = [];
+    }
+  }
+
+  /**
+   * Activar modo histórico para un año específico
+   */
+  async function enterHistoricalMode(year, conceptId = null) {
+    snapshotsState.currentHistoricalYear = year;
+    snapshotsState.isHistoricalMode = true;
+
+    // Mostrar banner de modo histórico
+    showHistoricalModeBanner(year);
+
+    // Si hay un concepto específico, cargar su estado histórico
+    if (conceptId) {
+      const historicalData = await getConceptStateAtYear(conceptId, year);
+      if (historicalData) {
+        snapshotsState.historicalData = historicalData;
+        populateFormWithHistoricalData(historicalData);
+      }
+    }
+
+    console.log(`🕰️ Entered historical mode for year ${year}`);
+  }
+
+  /**
+   * Salir del modo histórico
+   */
+  function exitHistoricalMode() {
+    snapshotsState.currentHistoricalYear = null;
+    snapshotsState.isHistoricalMode = false;
+    snapshotsState.historicalData = null;
+
+    // Ocultar banner
+    hideHistoricalModeBanner();
+
+    // Recargar datos actuales
+    if (state.concepts.length > 0) {
+      const currentConceptId = conceptIdInput.value;
+      if (currentConceptId) {
+        const currentConcept = state.concepts.find(
+          (c) => c.id === currentConceptId
+        );
+        if (currentConcept) {
+          showConceptDetails(currentConcept);
+        }
+      }
+    }
+
+    console.log("🕰️ Exited historical mode");
+  }
+
+  /**
+   * Mostrar banner de modo histórico
+   */
+  function showHistoricalModeBanner(year) {
+    let banner = document.getElementById("historical-view-banner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "historical-view-banner";
+      banner.className = "historical-view-banner";
+      banner.innerHTML = `
+        <span class="banner-icon">🕰️</span>
+        <span class="banner-text">Vista histórica: <strong id="historical-year">${year}</strong></span>
+        <button class="banner-close" id="exit-historical-view">×</button>
+      `;
+
+      // Insertar al inicio del formulario
+      const conceptForm = document.getElementById("concept-form");
+      if (conceptForm) {
+        conceptForm.parentNode.insertBefore(banner, conceptForm);
+      }
+
+      // Event listener para salir
+      document
+        .getElementById("exit-historical-view")
+        .addEventListener("click", exitHistoricalMode);
+    } else {
+      document.getElementById("historical-year").textContent = year;
+      banner.classList.remove("hidden");
+    }
+  }
+
+  /**
+   * Ocultar banner de modo histórico
+   */
+  function hideHistoricalModeBanner() {
+    const banner = document.getElementById("historical-view-banner");
+    if (banner) {
+      banner.classList.add("hidden");
+    }
+  }
+
+  /**
+   * Poblar formulario con datos históricos
+   */
+  function populateFormWithHistoricalData(historicalData) {
+    if (!historicalData) return;
+
+    // Deshabilitar campos para modo de solo lectura
+    const inputs = conceptForm.querySelectorAll("input, textarea, select");
+    inputs.forEach((input) => {
+      input.disabled = true;
+      input.classList.add("historical-input");
+    });
+
+    // Poblar campos con datos históricos
+    if (historicalData.labels) {
+      const prefLabel = historicalData.labels.find(
+        (l) => l.label_type === "prefLabel"
+      );
+      if (prefLabel) prefLabelInput.value = prefLabel.label_text || "";
+
+      const altLabels = historicalData.labels.filter(
+        (l) => l.label_type === "altLabel"
+      );
+      altLabelsInput.value = altLabels.map((l) => l.label_text).join("\n");
+
+      const hiddenLabels = historicalData.labels.filter(
+        (l) => l.label_type === "hiddenLabel"
+      );
+      hiddenLabelsInput.value = hiddenLabels
+        .map((l) => l.label_text)
+        .join("\n");
+    }
+
+    if (historicalData.notes) {
+      const definition = historicalData.notes.find(
+        (n) => n.note_type === "definition"
+      );
+      definitionInput.value = definition ? definition.note_text : "";
+
+      const scopeNote = historicalData.notes.find(
+        (n) => n.note_type === "scopeNote"
+      );
+      scopeNoteInput.value = scopeNote ? scopeNote.note_text : "";
+
+      const example = historicalData.notes.find(
+        (n) => n.note_type === "example"
+      );
+      exampleInput.value = example ? example.note_text : "";
+    }
+
+    // Campos temporales
+    temporalStartInput.value = historicalData.temporal_start || "";
+    temporalEndInput.value = historicalData.temporal_end || "";
+    temporalRelevanceInput.value = historicalData.temporal_relevance || "";
+
+    // Arrays
+    citationsInput.value = historicalData.citations
+      ? historicalData.citations.join("\n")
+      : "";
+    worksInput.value = historicalData.works
+      ? historicalData.works.join("\n")
+      : "";
+    mediaInput.value = historicalData.media
+      ? historicalData.media.join("\n")
+      : "";
+
+    // Deshabilitar botones de guardar
+    saveConceptBtn.disabled = true;
+    deleteConceptBtn.disabled = true;
+  }
+
+  /**
+   * Obtener años disponibles con snapshots
+   */
+  function getAvailableSnapshotYears() {
+    const years = new Set();
+    snapshotsState.snapshots.forEach((snapshot) => {
+      years.add(snapshot.snapshot_date);
+    });
+    return Array.from(years).sort((a, b) => b - a); // Más recientes primero
+  }
+
+  /**
+   * Verificar si hay snapshot en un año específico
+   */
+  function hasSnapshotInYear(year) {
+    return snapshotsState.snapshots.some((s) => s.snapshot_date === year);
+  }
+
   // Elementos del DOM para el sistema temporal
   const timelineSlider = document.getElementById("timeline-slider");
   const currentYearDisplay = document.getElementById("current-year-display");
@@ -4394,6 +4778,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const year = parseInt(event.target.value);
     updateYearDisplay(year);
     updateGraphByYear(year, false);
+
+    // === INTEGRACIÓN CON SISTEMA DE SNAPSHOTS ===
+    // Si hay un concepto seleccionado y estamos en modo histórico, actualizar formulario
+    if (snapshotsState.isHistoricalMode && conceptIdInput.value) {
+      enterHistoricalMode(year, conceptIdInput.value);
+    }
   }
 
   /**
@@ -4794,7 +5184,7 @@ document.addEventListener("DOMContentLoaded", () => {
         timelineConfigCancelBtn.addEventListener("click", closeTimelineConfig);
       }
 
-      // Cerrar modal al hacer clic fuera
+      // Cerrar modal al hacer click fuera
       timelineConfigModal.addEventListener("click", (e) => {
         if (e.target === timelineConfigModal) {
           closeTimelineConfig();
@@ -4804,6 +5194,79 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Calcular rango temporal inicial
     calculateTemporalRange();
+
+    // === INICIALIZACIÓN DEL SISTEMA DE SNAPSHOTS ===
+    initializeSnapshotsSystem();
+  }
+
+  /**
+   * Inicializar sistema de snapshots
+   */
+  async function initializeSnapshotsSystem() {
+    console.log("🔄 Initializing snapshots system...");
+
+    // Cargar snapshots del tesauro actual
+    await loadSnapshotsForThesaurus();
+
+    // Agregar indicadores visuales de snapshots en el timeline
+    updateTimelineWithSnapshots();
+
+    console.log("✅ Snapshots system initialized");
+  }
+
+  /**
+   * Actualizar timeline con marcadores de snapshots
+   */
+  function updateTimelineWithSnapshots() {
+    if (!timelineSlider) return;
+
+    // Limpiar marcadores anteriores
+    const existingMarkers = document.querySelectorAll(
+      ".timeline-snapshot-marker"
+    );
+    existingMarkers.forEach((marker) => marker.remove());
+
+    // Obtener años con snapshots
+    const snapshotYears = getAvailableSnapshotYears();
+
+    // Crear marcadores para cada año con snapshots
+    snapshotYears.forEach((year) => {
+      if (year >= temporalState.minYear && year <= temporalState.maxYear) {
+        const marker = document.createElement("div");
+        marker.className = "timeline-snapshot-marker";
+        marker.style.left = `${
+          ((year - temporalState.minYear) /
+            (temporalState.maxYear - temporalState.minYear)) *
+          100
+        }%`;
+        marker.title = `Snapshot disponible: ${year}`;
+        marker.dataset.year = year;
+
+        // Event listener para clic en marcador
+        marker.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const conceptId = conceptIdInput.value;
+          if (conceptId) {
+            await enterHistoricalMode(year, conceptId);
+            // Actualizar slider al año del snapshot
+            timelineSlider.value = year;
+            updateYearDisplay(year);
+          } else {
+            Swal.fire(
+              "Info",
+              "Selecciona un concepto primero para ver su estado histórico.",
+              "info"
+            );
+          }
+        });
+
+        // Insertar marcador en el contenedor del slider
+        const sliderContainer = timelineSlider.parentNode;
+        if (sliderContainer) {
+          sliderContainer.appendChild(marker);
+        }
+      }
+    });
   }
 
   // --- 11. FUNCIONES DE INTEGRACIÓN CON ZOTERO ---
@@ -5114,6 +5577,19 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeTemporalSystem();
     initializeAnalyticalViews();
   }
+
+  // --- 13. FUNCIONES DE INTEGRACIÓN CON SNAPSHOTS ---
+
+  /**
+   * Modificar fetchAllConceptData para cargar snapshots también
+   */
+  const originalFetchAllConceptData = fetchAllConceptData;
+  fetchAllConceptData = async function () {
+    await originalFetchAllConceptData();
+    // Cargar snapshots después de cargar conceptos
+    await loadSnapshotsForThesaurus();
+    updateTimelineWithSnapshots();
+  };
 
   // --- 13. SISTEMA DE VISTAS ANALÍTICAS ---
 
