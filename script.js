@@ -270,14 +270,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- 5. FUNCIONES DE GESTIÓN DE TESAUROS ---
   async function fetchUserThesauruses() {
-    const { data, error } = await supabase
-      .from("thesauruses")
-      .select("*")
-      .eq("user_id", state.user.id)
-      .order("created_at", { ascending: false });
+    // Asegurarse que exista usuario en estado
+    if (!state.user || !state.user.id) {
+      console.warn(
+        "fetchUserThesauruses: no hay usuario en state, intentando refrescar sesión..."
+      );
+      try {
+        await checkUserSession();
+      } catch (e) {
+        console.error("Error al revalidar sesión antes de cargar tesauros:", e);
+      }
+      if (!state.user || !state.user.id) {
+        console.warn(
+          "fetchUserThesauruses: sigue sin haber usuario, abortando carga de tesauros"
+        );
+        return;
+      }
+    }
+
+    console.log(
+      "fetchUserThesauruses: cargando tesauros para user.id=",
+      state.user.id
+    );
+
+    let data, error;
+    try {
+      const res = await supabase
+        .from("thesauruses")
+        .select("*")
+        .eq("user_id", state.user.id)
+        .order("created_at", { ascending: false });
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      console.error(
+        "fetchUserThesauruses: excepción al llamar a Supabase:",
+        err
+      );
+      Swal.fire(
+        "Error",
+        "No se pudieron cargar los tesauros (excepción). Revisa la consola.",
+        "error"
+      );
+      return;
+    }
 
     if (error) {
       console.error("Error fetching thesauruses:", error);
+      Swal.fire(
+        "Error",
+        `No se pudieron cargar los tesauros: ${error.message || error}`,
+        "error"
+      );
       return;
     }
     state.thesauruses = data;
@@ -4176,6 +4220,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentHistoricalYear: null, // Año actual en modo histórico
     isHistoricalMode: false, // Si estamos en modo histórico
     historicalData: null, // Datos históricos del formulario actual
+    originalEditorCollapsed: false, // Estado original de colapso del editor de conceptos
   };
 
   /**
@@ -4201,11 +4246,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
+      // Usar el año de la línea de tiempo si está en modo histórico, si no el timestamp actual
+      let snapshotDate;
+      if (
+        snapshotsState.isHistoricalMode &&
+        snapshotsState.currentHistoricalYear
+      ) {
+        // Usar el año de la línea de tiempo, pero como fecha completa para compatibilidad
+        snapshotDate = `${snapshotsState.currentHistoricalYear}-01-01T00:00:00.000Z`;
+      } else {
+        snapshotDate = new Date().toISOString();
+      }
       const snapshotData = {
         thesaurus_id: state.activeThesaurusId,
         entity_type: "concept",
         entity_id: conceptId,
-        snapshot_date: new Date().getFullYear(),
+        snapshot_date: snapshotDate,
         snapshot_data: conceptData,
         user_id: state.user.id,
       };
@@ -4243,7 +4299,7 @@ document.addEventListener("DOMContentLoaded", () => {
         thesaurus_id: state.activeThesaurusId,
         entity_type: "relationship",
         entity_id: relationshipId,
-        snapshot_date: new Date().getFullYear(),
+        snapshot_date: new Date().toISOString(), // Usar timestamp completo
         snapshot_data: relationshipData,
         user_id: state.user.id,
       };
@@ -4272,13 +4328,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!state.activeThesaurusId) return null;
 
     try {
+      // Definir rango de fechas para el año
+      const startDate = `${year}-01-01T00:00:00.000Z`;
+      const endDate = `${year}-12-31T23:59:59.999Z`;
       const { data, error } = await supabase
         .from("snapshots")
         .select("snapshot_data")
         .eq("thesaurus_id", state.activeThesaurusId)
         .eq("entity_type", "concept")
         .eq("entity_id", conceptId)
-        .lte("snapshot_date", year)
+        .gte("snapshot_date", startDate)
+        .lte("snapshot_date", endDate)
         .order("snapshot_date", { ascending: false })
         .limit(1)
         .single();
@@ -4364,6 +4424,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Mostrar banner de modo histórico
     showHistoricalModeBanner(year);
+    // Expandir el editor de conceptos si está colapsado
+    const conceptEditorHeader =
+      document.querySelector("#concept-form").previousElementSibling;
+    if (
+      conceptEditorHeader &&
+      conceptEditorHeader.classList.contains("collapsible-header")
+    ) {
+      // Guardar el estado original de colapso antes de expandir
+      const content = conceptEditorHeader.nextElementSibling;
+      snapshotsState.originalEditorCollapsed = content
+        ? content.classList.contains("hidden")
+        : false;
+
+      conceptEditorHeader.classList.remove("hidden");
+      if (content) {
+        content.classList.remove("hidden");
+        const toggle = conceptEditorHeader.querySelector(".toggle-collapse");
+        if (toggle) toggle.textContent = "-";
+      }
+      // Permitir expandir/collapse en modo histórico
+      conceptEditorHeader.classList.remove("disabled");
+      if (content) content.classList.remove("disabled");
+    }
 
     // Si hay un concepto específico, cargar su estado histórico
     if (conceptId) {
@@ -4381,6 +4464,35 @@ document.addEventListener("DOMContentLoaded", () => {
    * Salir del modo histórico
    */
   function exitHistoricalMode() {
+    // Restaurar campos y botones a modo edición
+    let editableInputs = conceptForm.querySelectorAll(
+      "input, textarea, select"
+    );
+    editableInputs.forEach((input) => {
+      input.disabled = false;
+      input.classList.remove("historical-input");
+    });
+    saveConceptBtn.disabled = false;
+    deleteConceptBtn.disabled = false;
+    // Restaurar el estado original de colapso del editor de conceptos
+    const conceptEditorHeader =
+      document.querySelector("#concept-form").previousElementSibling;
+    if (
+      conceptEditorHeader &&
+      conceptEditorHeader.classList.contains("collapsible-header")
+    ) {
+      conceptEditorHeader.classList.remove("disabled");
+      const content = conceptEditorHeader.nextElementSibling;
+      if (content) {
+        content.classList.remove("disabled");
+        // Restaurar el estado original de colapso
+        if (snapshotsState.originalEditorCollapsed) {
+          content.classList.add("hidden");
+          const toggle = conceptEditorHeader.querySelector(".toggle-collapse");
+          if (toggle) toggle.textContent = "+";
+        }
+      }
+    }
     snapshotsState.currentHistoricalYear = null;
     snapshotsState.isHistoricalMode = false;
     snapshotsState.historicalData = null;
@@ -4424,14 +4536,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (conceptForm) {
         conceptForm.parentNode.insertBefore(banner, conceptForm);
       }
-
-      // Event listener para salir
-      document
-        .getElementById("exit-historical-view")
-        .addEventListener("click", exitHistoricalMode);
     } else {
       document.getElementById("historical-year").textContent = year;
       banner.classList.remove("hidden");
+    }
+
+    // Event listener para salir (siempre añadir para asegurar funcionamiento)
+    const exitBtn = document.getElementById("exit-historical-view");
+    if (exitBtn) {
+      // Remover listeners previos para evitar duplicados
+      exitBtn.removeEventListener("click", exitHistoricalMode);
+      exitBtn.addEventListener("click", exitHistoricalMode);
     }
   }
 
@@ -4452,8 +4567,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!historicalData) return;
 
     // Deshabilitar campos para modo de solo lectura
-    const inputs = conceptForm.querySelectorAll("input, textarea, select");
-    inputs.forEach((input) => {
+    let conceptInputsHist = conceptForm.querySelectorAll(
+      "input, textarea, select"
+    );
+    conceptInputsHist.forEach((input) => {
       input.disabled = true;
       input.classList.add("historical-input");
     });
@@ -4522,7 +4639,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function getAvailableSnapshotYears() {
     const years = new Set();
     snapshotsState.snapshots.forEach((snapshot) => {
-      years.add(snapshot.snapshot_date);
+      if (snapshot.snapshot_date) {
+        // Si es timestamp, extraer solo el año
+        const year = new Date(snapshot.snapshot_date).getFullYear();
+        years.add(year);
+      }
     });
     return Array.from(years).sort((a, b) => b - a); // Más recientes primero
   }
